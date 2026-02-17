@@ -1,0 +1,3569 @@
+<!--豆包3.0-->
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>玄幻修真RPG - 全系統養成遊戲</title>
+  <style>
+    /* 全局樣式重置與基礎設定 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "微軟正黑體", "PingFang TC", sans-serif;
+    }
+
+    :root {
+      /* 品質顏色定義 - 對應品質等級0-6 */
+      --quality-0: #FFFFFF; /* 普通 - 白色 */
+      --quality-1: #2ECC71; /* 優秀 - 綠色 */
+      --quality-2: #3498DB; /* 精良 - 藍色 */
+      --quality-3: #9B59B6; /* 史詩 - 紫色 */
+      --quality-4: #F39C12; /* 傳說 - 橙色 */
+      --quality-5: #E74C3C; /* 神話 - 紅色 */
+      --quality-6: #F1C40F; /* 至尊 - 金色 */
+      
+      /* 主題色 */
+      --primary-color: #8E44AD;
+      --secondary-color: #2C3E50;
+      --bg-color: #1A1A2E;
+      --card-bg: #16213E;
+      --text-color: #F5F5F5;
+      --border-color: #0F3460;
+      --success-color: #2ECC71;
+      --danger-color: #E74C3C;
+      --warning-color: #F39C12;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* 頂部狀態欄 */
+    #topBar {
+      background-color: var(--secondary-color);
+      padding: 0.5rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .player-info {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .exp-bar-container {
+      width: 300px;
+      height: 20px;
+      background-color: var(--secondary-color);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .exp-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary-color), #E84393);
+      transition: width 0.3s ease;
+    }
+
+    /* 主導航欄 */
+    #mainNav {
+      background-color: var(--card-bg);
+      padding: 0.5rem;
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      background-color: var(--secondary-color);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .nav-btn:hover {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .nav-btn.active {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    /* 主內容容器 */
+    #mainContent {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+
+    .view-container {
+      display: none;
+      width: 100%;
+      height: 100%;
+    }
+
+    .view-container.active {
+      display: block;
+    }
+
+    /* 卡片通用樣式 */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    /* 屬性面板樣式 */
+    .attr-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.8rem;
+    }
+
+    .attr-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.3rem 0.5rem;
+      background-color: rgba(0,0,0,0.2);
+      border-radius: 4px;
+    }
+
+    /* 按鈕通用樣式 */
+    .btn {
+      background-color: var(--primary-color);
+      color: var(--text-color);
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 500;
+    }
+
+    .btn:hover {
+      filter: brightness(1.2);
+    }
+
+    .btn-success {
+      background-color: var(--success-color);
+    }
+
+    .btn-danger {
+      background-color: var(--danger-color);
+    }
+
+    .btn-warning {
+      background-color: var(--warning-color);
+    }
+
+    .btn-outline {
+      background-color: transparent;
+      border: 1px solid var(--primary-color);
+    }
+
+    .btn-outline:hover {
+      background-color: var(--primary-color);
+    }
+
+    /* 底部日誌欄 */
+    #logBar {
+      background-color: var(--secondary-color);
+      padding: 0.5rem 1rem;
+      border-top: 1px solid var(--border-color);
+      height: 120px;
+      overflow-y: auto;
+    }
+
+    .log-item {
+      margin-bottom: 0.3rem;
+      font-size: 0.9rem;
+      color: #CCCCCC;
+    }
+
+    .log-item.success {
+      color: var(--success-color);
+    }
+
+    .log-item.danger {
+      color: var(--danger-color);
+    }
+
+    .log-item.warning {
+      color: var(--warning-color);
+    }
+
+    /* 響應式調整 */
+    @media (max-width: 768px) {
+      .exp-bar-container {
+        width: 100%;
+      }
+      .player-info {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .attr-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 頂部狀態欄 -->
+  <div id="topBar">
+    <div class="player-info">
+      <div class="info-item">
+        <span>角色名：</span>
+        <span id="playerName">修真者</span>
+      </div>
+      <div class="info-item">
+        <span>等級：</span>
+        <span id="playerLevel">1</span>
+      </div>
+      <div class="exp-bar-container">
+        <div id="expBar" class="exp-bar" style="width: 0%"></div>
+      </div>
+      <div class="info-item">
+        <span id="expText">0 / 100 經驗</span>
+      </div>
+    </div>
+    <div class="player-info">
+      <div class="info-item">
+        <span>金幣：</span>
+        <span id="goldCount">0</span>
+      </div>
+      <div class="info-item">
+        <span>元寶：</span>
+        <span id="diamondCount">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主導航欄 -->
+  <div id="mainNav">
+    <button class="nav-btn active" data-view="role">角色</button>
+    <button class="nav-btn" data-view="equipment">裝備</button>
+    <button class="nav-btn" data-view="battle">戰鬥</button>
+    <button class="nav-btn" data-view="forge">鍛造</button>
+    <button class="nav-btn" data-view="shop">商城</button>
+    <button class="nav-btn" data-view="trade">交易</button>
+    <button class="nav-btn" data-view="afk">離線掛機</button>
+    <button class="nav-btn" data-view="recharge">充值</button>
+    <button class="nav-btn btn-outline" id="saveBtn">手動存檔</button>
+    <button class="nav-btn btn-danger" id="resetBtn">重置遊戲</button>
+  </div>
+
+  <!-- 主內容容器 -->
+  <div id="mainContent">
+    <!-- 角色界面 -->
+    <div id="roleView" class="view-container active">
+      <div class="card">
+        <h2 class="card-title">角色基礎信息</h2>
+        <div class="attr-grid">
+          <div class="attr-item">
+            <span>角色名</span>
+            <span id="roleName">修真者</span>
+          </div>
+          <div class="attr-item">
+            <span>等級</span>
+            <span id="roleLevel">1</span>
+          </div>
+          <div class="attr-item">
+            <span>轉生次數</span>
+            <span id="rebirthCount">0</span>
+          </div>
+          <div class="attr-item">
+            <span>當前經驗</span>
+            <span id="roleExp">0</span>
+          </div>
+          <div class="attr-item">
+            <span>升級所需經驗</span>
+            <span id="roleNextExp">100</span>
+          </div>
+          <div class="attr-item">
+            <span>通關關卡</span>
+            <span id="stageCount">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">戰鬥屬性</h2>
+        <div id="attrContainer" class="attr-grid">
+          <!-- 屬性由JS動態渲染 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 預留界面容器 - 後續模塊無侵入式擴展 -->
+    <div id="equipmentView" class="view-container"></div>
+    <div id="battleView" class="view-container"></div>
+    <div id="forgeView" class="view-container"></div>
+    <div id="shopView" class="view-container"></div>
+    <div id="tradeView" class="view-container"></div>
+    <div id="afkView" class="view-container"></div>
+    <div id="rechargeView" class="view-container"></div>
+  </div>
+
+  <!-- 底部日誌欄 -->
+  <div id="logBar">
+    <div class="log-item success">歡迎來到玄幻修真RPG，遊戲已加載完成！</div>
+  </div>
+
+  <script>
+    // ==================== 核心常量定義（全局唯一，後續模塊直接复用） ====================
+    const GAME_CONFIG = {
+      SAVE_KEY: 'xuanhuan_rpg_save_v1',
+      MAX_LEVEL: 1000,
+      BASE_EXP: 100,
+      EXP_COEFFICIENT: 1.5,
+      AUTO_SAVE_INTERVAL: 60000,
+      BACKPACK_MAX_CAPACITY: 500,
+      WAREHOUSE_MAX_CAPACITY: 2000,
+    };
+
+    // 屬性類型枚舉 - 全遊戲唯一標識
+    const ATTR_TYPE = {
+      PHYSICAL_ATTACK: 'physicalAttack',
+      MAGIC_ATTACK: 'magicAttack',
+      PHYSICAL_DEFENSE: 'physicalDefense',
+      MAGIC_DEFENSE: 'magicDefense',
+      HIT: 'hit',
+      DODGE: 'dodge',
+      CRIT_RATE: 'critRate',
+      CRIT_DAMAGE: 'critDamage',
+      CRIT_DEFENSE: 'critDefense',
+      MAX_HP: 'maxHp',
+      MAX_MP: 'maxMp',
+    };
+
+    // 屬性繁體名稱映射
+    const ATTR_NAME_MAP = {
+      [ATTR_TYPE.PHYSICAL_ATTACK]: '物理攻擊',
+      [ATTR_TYPE.MAGIC_ATTACK]: '法術攻擊',
+      [ATTR_TYPE.PHYSICAL_DEFENSE]: '物理防禦',
+      [ATTR_TYPE.MAGIC_DEFENSE]: '法術防禦',
+      [ATTR_TYPE.HIT]: '命中',
+      [ATTR_TYPE.DODGE]: '閃避',
+      [ATTR_TYPE.CRIT_RATE]: '暴擊率',
+      [ATTR_TYPE.CRIT_DAMAGE]: '暴擊傷害',
+      [ATTR_TYPE.CRIT_DEFENSE]: '暴擊防禦',
+      [ATTR_TYPE.MAX_HP]: '最大生命',
+      [ATTR_TYPE.MAX_MP]: '最大法力',
+    };
+
+    // 屬性百分比標記
+    const ATTR_IS_PERCENT = {
+      [ATTR_TYPE.CRIT_RATE]: true,
+      [ATTR_TYPE.CRIT_DAMAGE]: true,
+      [ATTR_TYPE.CRIT_DEFENSE]: true,
+      [ATTR_TYPE.HIT]: true,
+      [ATTR_TYPE.DODGE]: true,
+      [ATTR_TYPE.PHYSICAL_ATTACK]: false,
+      [ATTR_TYPE.MAGIC_ATTACK]: false,
+      [ATTR_TYPE.PHYSICAL_DEFENSE]: false,
+      [ATTR_TYPE.MAGIC_DEFENSE]: false,
+      [ATTR_TYPE.MAX_HP]: false,
+      [ATTR_TYPE.MAX_MP]: false,
+    };
+
+    // 裝備品質枚舉
+    const EQUIP_QUALITY = {
+      NORMAL: 0,
+      GOOD: 1,
+      EXCELLENT: 2,
+      EPIC: 3,
+      LEGENDARY: 4,
+      MYTHIC: 5,
+      SUPREME: 6,
+    };
+
+    // 裝備品質配置
+    const EQUIP_QUALITY_CONFIG = {
+      [EQUIP_QUALITY.NORMAL]: { name: '普通', color: 'var(--quality-0)', extraAttrCount: 0, baseAttrMultiplier: 1.0, starLimit: 3 },
+      [EQUIP_QUALITY.GOOD]: { name: '優秀', color: 'var(--quality-1)', extraAttrCount: 1, baseAttrMultiplier: 1.2, starLimit: 5 },
+      [EQUIP_QUALITY.EXCELLENT]: { name: '精良', color: 'var(--quality-2)', extraAttrCount: 2, baseAttrMultiplier: 1.5, starLimit: 7 },
+      [EQUIP_QUALITY.EPIC]: { name: '史詩', color: 'var(--quality-3)', extraAttrCount: 3, baseAttrMultiplier: 2.0, starLimit: 9 },
+      [EQUIP_QUALITY.LEGENDARY]: { name: '傳說', color: 'var(--quality-4)', extraAttrCount: 4, baseAttrMultiplier: 3.0, starLimit: 12 },
+      [EQUIP_QUALITY.MYTHIC]: { name: '神話', color: 'var(--quality-5)', extraAttrCount: 5, baseAttrMultiplier: 5.0, starLimit: 15 },
+      [EQUIP_QUALITY.SUPREME]: { name: '至尊', color: 'var(--quality-6)', extraAttrCount: 6, baseAttrMultiplier: 10.0, starLimit: 20 },
+    };
+
+    // 裝備部位枚舉
+    const EQUIP_SLOT = {
+      // 攻擊性部位
+      WEAPON: 'weapon',
+      WRIST: 'wrist',
+      RING: 'ring',
+      AMULET: 'amulet',
+      // 防禦性部位
+      HELMET: 'helmet',
+      ARMOR: 'armor',
+      GLOVES: 'gloves',
+      BOOTS: 'boots',
+      SHOULDER: 'shoulder',
+      BELT: 'belt',
+      // 攻防兼備部位
+      NECKLACE: 'necklace',
+      DART: 'dart',
+      DRAGON_PATTERN: 'dragonPattern',
+      TOKEN: 'token',
+    };
+
+    // 裝備部位分類
+    const EQUIP_SLOT_CATEGORY = {
+      ATTACK: [EQUIP_SLOT.WEAPON, EQUIP_SLOT.WRIST, EQUIP_SLOT.RING, EQUIP_SLOT.AMULET],
+      DEFENSE: [EQUIP_SLOT.HELMET, EQUIP_SLOT.ARMOR, EQUIP_SLOT.GLOVES, EQUIP_SLOT.BOOTS, EQUIP_SLOT.SHOULDER, EQUIP_SLOT.BELT],
+      HYBRID: [EQUIP_SLOT.NECKLACE, EQUIP_SLOT.DART, EQUIP_SLOT.DRAGON_PATTERN, EQUIP_SLOT.TOKEN],
+    };
+
+    // 部位繁體名稱映射
+    const EQUIP_SLOT_NAME_MAP = {
+      [EQUIP_SLOT.WEAPON]: '武器',
+      [EQUIP_SLOT.WRIST]: '護腕',
+      [EQUIP_SLOT.RING]: '戒指',
+      [EQUIP_SLOT.AMULET]: '護符',
+      [EQUIP_SLOT.HELMET]: '頭盔',
+      [EQUIP_SLOT.ARMOR]: '甲胄',
+      [EQUIP_SLOT.GLOVES]: '手套',
+      [EQUIP_SLOT.BOOTS]: '鞋子',
+      [EQUIP_SLOT.SHOULDER]: '護肩',
+      [EQUIP_SLOT.BELT]: '腰帶',
+      [EQUIP_SLOT.NECKLACE]: '項鏈',
+      [EQUIP_SLOT.DART]: '暗器',
+      [EQUIP_SLOT.DRAGON_PATTERN]: '龍紋',
+      [EQUIP_SLOT.TOKEN]: '令牌',
+    };
+
+    // 部位基礎屬性配置
+    const EQUIP_SLOT_ATTR_CONFIG = {
+      [EQUIP_SLOT.WEAPON]: { mainAttrs: [ATTR_TYPE.PHYSICAL_ATTACK, ATTR_TYPE.MAGIC_ATTACK], baseCount: 2 },
+      [EQUIP_SLOT.WRIST]: { mainAttrs: [ATTR_TYPE.PHYSICAL_ATTACK, ATTR_TYPE.HIT], baseCount: 2 },
+      [EQUIP_SLOT.RING]: { mainAttrs: [ATTR_TYPE.CRIT_RATE, ATTR_TYPE.CRIT_DAMAGE], baseCount: 2 },
+      [EQUIP_SLOT.AMULET]: { mainAttrs: [ATTR_TYPE.MAGIC_ATTACK, ATTR_TYPE.CRIT_DAMAGE], baseCount: 2 },
+      [EQUIP_SLOT.HELMET]: { mainAttrs: [ATTR_TYPE.PHYSICAL_DEFENSE, ATTR_TYPE.MAX_HP], baseCount: 2 },
+      [EQUIP_SLOT.ARMOR]: { mainAttrs: [ATTR_TYPE.PHYSICAL_DEFENSE, ATTR_TYPE.MAGIC_DEFENSE], baseCount: 2 },
+      [EQUIP_SLOT.GLOVES]: { mainAttrs: [ATTR_TYPE.HIT, ATTR_TYPE.PHYSICAL_DEFENSE], baseCount: 2 },
+      [EQUIP_SLOT.BOOTS]: { mainAttrs: [ATTR_TYPE.DODGE, ATTR_TYPE.PHYSICAL_DEFENSE], baseCount: 2 },
+      [EQUIP_SLOT.SHOULDER]: { mainAttrs: [ATTR_TYPE.MAGIC_DEFENSE, ATTR_TYPE.MAX_HP], baseCount: 2 },
+      [EQUIP_SLOT.BELT]: { mainAttrs: [ATTR_TYPE.MAX_HP, ATTR_TYPE.MAX_MP], baseCount: 2 },
+      [EQUIP_SLOT.NECKLACE]: { mainAttrs: [ATTR_TYPE.PHYSICAL_ATTACK, ATTR_TYPE.MAGIC_ATTACK, ATTR_TYPE.PHYSICAL_DEFENSE, ATTR_TYPE.MAGIC_DEFENSE], baseCount: 2 },
+      [EQUIP_SLOT.DART]: { mainAttrs: [ATTR_TYPE.CRIT_RATE, ATTR_TYPE.HIT, ATTR_TYPE.DODGE], baseCount: 2 },
+      [EQUIP_SLOT.DRAGON_PATTERN]: { mainAttrs: [ATTR_TYPE.CRIT_DAMAGE, ATTR_TYPE.CRIT_DEFENSE], baseCount: 2 },
+      [EQUIP_SLOT.TOKEN]: { mainAttrs: [ATTR_TYPE.ALL], baseCount: 1 },
+    };
+
+    // 道具類型枚舉
+    const ITEM_TYPE = {
+      EQUIPMENT: 'equipment',
+      MATERIAL: 'material',
+      GEM: 'gem',
+      CONSUMABLE: 'consumable',
+      BLUEPRINT: 'blueprint',
+      FRAGMENT: 'fragment',
+    };
+
+    // ==================== 通用工具函數（全局复用，無副作用） ====================
+    const GameUtils = {
+      getRandomInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+      isProbabilityHit: (rate) => Math.random() * 100 <= rate,
+      formatNumber: (num) => {
+        if (num < 10000) return Math.floor(num).toString();
+        if (num < 100000000) return (num / 10000).toFixed(2) + '萬';
+        return (num / 100000000).toFixed(2) + '億';
+      },
+      formatAttributeValue: (attrType, value) => {
+        return ATTR_IS_PERCENT[attrType] ? `${value.toFixed(2)}%` : Math.floor(value).toString();
+      },
+      deepClone: (obj) => {
+        if (obj === null || typeof obj !== 'object') return obj;
+        if (obj instanceof Array) return obj.map(item => GameUtils.deepClone(item));
+        const cloned = {};
+        for (const key in obj) {
+          if (obj.hasOwnProperty(key)) cloned[key] = GameUtils.deepClone(obj[key]);
+        }
+        return cloned;
+      },
+      calculateLevelExp: (level) => Math.floor(GAME_CONFIG.BASE_EXP * Math.pow(level, GAME_CONFIG.EXP_COEFFICIENT)),
+      generateUniqueId: () => `${Date.now()}_${GameUtils.getRandomInt(1000, 9999)}`,
+    };
+
+    // ==================== 遊戲核心對象（單例模式，後續模塊擴展不修改核心） ====================
+    const Game = {
+      // 玩家核心數據
+      player: {
+        name: '修真者',
+        level: 1,
+        exp: 0,
+        rebirthCount: 0,
+        gold: 1000,
+        diamond: 100,
+        baseAttr: {},
+        equipAttr: {},
+        gemAttr: {},
+        enhanceAttr: {},
+        extraAttr: {},
+        finalAttr: {},
+        equipment: {},
+        backpack: [],
+        warehouse: [],
+        materials: {},
+        currentStage: 0,
+        rechargeHistory: [],
+        afkData: { lastOfflineTime: Date.now(), stage: 0 },
+      },
+
+      // 遊戲狀態管理
+      state: {
+        currentView: 'role',
+        isInBattle: false,
+        isGameLoaded: false,
+      },
+
+      // ==================== 本地存檔系統（符合隱私自主可控原則） ====================
+      save: {
+        saveGame: () => {
+          try {
+            const saveData = GameUtils.deepClone(Game.player);
+            saveData.afkData.lastOfflineTime = Date.now();
+            localStorage.setItem(GAME_CONFIG.SAVE_KEY, JSON.stringify(saveData));
+            Game.log.addLog('遊戲已手動保存', 'success');
+            return true;
+          } catch (e) {
+            Game.log.addLog('遊戲保存失敗：' + e.message, 'danger');
+            return false;
+          }
+        },
+        loadGame: () => {
+          try {
+            const saveString = localStorage.getItem(GAME_CONFIG.SAVE_KEY);
+            if (!saveString) {
+              Game.init.initPlayerData();
+              return false;
+            }
+            Game.player = GameUtils.deepClone(JSON.parse(saveString));
+            Game.log.addLog('遊戲存檔加載成功', 'success');
+            return true;
+          } catch (e) {
+            Game.log.addLog('存檔加載失敗，已初始化新遊戲：' + e.message, 'danger');
+            Game.init.initPlayerData();
+            return false;
+          }
+        },
+        resetGame: () => {
+          if (!confirm('確定要重置遊戲嗎？所有數據將被清空，無法恢復！')) return;
+          localStorage.removeItem(GAME_CONFIG.SAVE_KEY);
+          Game.init.initPlayerData();
+          Game.render.renderAll();
+          Game.log.addLog('遊戲已重置', 'warning');
+        },
+        autoSave: () => setInterval(() => Game.save.saveGame(), GAME_CONFIG.AUTO_SAVE_INTERVAL),
+      },
+
+      // ==================== 日誌系統 ====================
+      log: {
+        addLog: (content, type = 'normal') => {
+          const logBar = document.getElementById('logBar');
+          const logItem = document.createElement('div');
+          logItem.className = `log-item ${type}`;
+          logItem.textContent = `[${new Date().toLocaleTimeString()}] ${content}`;
+          logBar.appendChild(logItem);
+          logBar.scrollTop = logBar.scrollHeight;
+          while (logBar.children.length > 100) logBar.removeChild(logBar.firstChild);
+        },
+      },
+
+      // ==================== 屬性系統（核心戰鬥基礎） ====================
+      attribute: {
+        initBaseAttr: () => {
+          // 初始化所有屬性維度
+          for (const attr in ATTR_TYPE) {
+            const attrKey = ATTR_TYPE[attr];
+            Game.player.baseAttr[attrKey] = 0;
+            Game.player.equipAttr[attrKey] = 0;
+            Game.player.gemAttr[attrKey] = 0;
+            Game.player.enhanceAttr[attrKey] = 0;
+            Game.player.extraAttr[attrKey] = 0;
+            Game.player.finalAttr[attrKey] = 0;
+          }
+          Game.attribute.updateBaseAttrByLevel();
+        },
+        updateBaseAttrByLevel: () => {
+          const level = Game.player.level;
+          Game.player.baseAttr[ATTR_TYPE.MAX_HP] = 100 + level * 50;
+          Game.player.baseAttr[ATTR_TYPE.MAX_MP] = 50 + level * 20;
+          Game.player.baseAttr[ATTR_TYPE.PHYSICAL_ATTACK] = 10 + level * 5;
+          Game.player.baseAttr[ATTR_TYPE.MAGIC_ATTACK] = 10 + level * 5;
+          Game.player.baseAttr[ATTR_TYPE.PHYSICAL_DEFENSE] = 5 + level * 3;
+          Game.player.baseAttr[ATTR_TYPE.MAGIC_DEFENSE] = 5 + level * 3;
+          Game.player.baseAttr[ATTR_TYPE.HIT] = 5 + level * 0.1;
+          Game.player.baseAttr[ATTR_TYPE.DODGE] = 2 + level * 0.1;
+          Game.player.baseAttr[ATTR_TYPE.CRIT_RATE] = 5 + level * 0.05;
+          Game.player.baseAttr[ATTR_TYPE.CRIT_DAMAGE] = 150 + level * 0.2;
+          Game.player.baseAttr[ATTR_TYPE.CRIT_DEFENSE] = 0 + level * 0.05;
+        },
+        calculateFinalAttr: () => {
+          for (const attr in ATTR_TYPE) {
+            const attrKey = ATTR_TYPE[attr];
+            Game.player.finalAttr[attrKey] = 
+              Game.player.baseAttr[attrKey] +
+              Game.player.equipAttr[attrKey] +
+              Game.player.gemAttr[attrKey] +
+              Game.player.enhanceAttr[attrKey] +
+              Game.player.extraAttr[attrKey];
+          }
+        },
+        getAttrDisplayText: (attrKey) => GameUtils.formatAttributeValue(attrKey, Game.player.finalAttr[attrKey]),
+      },
+
+      // ==================== 等級與經驗系統 ====================
+      level: {
+        getCurrentLevelExpCap: () => GameUtils.calculateLevelExp(Game.player.level),
+        addExp: (exp) => {
+          if (exp <= 0) return;
+          Game.player.exp += exp;
+          Game.log.addLog(`獲得 ${GameUtils.formatNumber(exp)} 經驗`, 'success');
+          Game.level.checkLevelUp();
+          Game.render.renderPlayerInfo();
+        },
+        checkLevelUp: () => {
+          let levelUpCount = 0;
+          while (true) {
+            const currentCap = Game.level.getCurrentLevelExpCap();
+            if (Game.player.exp < currentCap || Game.player.level >= GAME_CONFIG.MAX_LEVEL) break;
+            Game.player.exp -= currentCap;
+            Game.player.level += 1;
+            levelUpCount += 1;
+            Game.attribute.updateBaseAttrByLevel();
+          }
+          if (levelUpCount > 0) {
+            Game.log.addLog(`恭喜！等級提升 ${levelUpCount} 級，當前等級 ${Game.player.level}`, 'warning');
+            Game.attribute.calculateFinalAttr();
+            Game.render.renderRoleView();
+          }
+        },
+      },
+
+      // ==================== 背包系統（基礎框架，後續擴展） ====================
+      backpack: {
+        addItem: (item) => {
+          if (Game.player.backpack.length >= GAME_CONFIG.BACKPACK_MAX_CAPACITY) {
+            Game.log.addLog('背包已滿，無法獲得道具', 'danger');
+            return false;
+          }
+          Game.player.backpack.push(GameUtils.deepClone(item));
+          Game.log.addLog(`獲得道具：${item.name}`, 'success');
+          return true;
+        },
+        removeItem: (itemId) => {
+          const index = Game.player.backpack.findIndex(item => item.id === itemId);
+          if (index === -1) return false;
+          const removedItem = Game.player.backpack.splice(index, 1)[0];
+          Game.log.addLog(`移除道具：${removedItem.name}`, 'warning');
+          return true;
+        },
+        getItemById: (itemId) => Game.player.backpack.find(item => item.id === itemId),
+      },
+
+      // ==================== 界面渲染系統 ====================
+      render: {
+        renderAll: () => {
+          Game.render.renderPlayerInfo();
+          Game.render.renderRoleView();
+          Game.render.renderNav();
+        },
+        renderPlayerInfo: () => {
+          document.getElementById('playerName').textContent = Game.player.name;
+          document.getElementById('playerLevel').textContent = Game.player.level;
+          document.getElementById('goldCount').textContent = GameUtils.formatNumber(Game.player.gold);
+          document.getElementById('diamondCount').textContent = GameUtils.formatNumber(Game.player.diamond);
+          
+          const currentExp = Game.player.exp;
+          const expCap = Game.level.getCurrentLevelExpCap();
+          const expPercent = Math.min((currentExp / expCap) * 100, 100);
+          
+          document.getElementById('expBar').style.width = `${expPercent}%`;
+          document.getElementById('expText').textContent = `${GameUtils.formatNumber(currentExp)} / ${GameUtils.formatNumber(expCap)} 經驗`;
+        },
+        renderRoleView: () => {
+          document.getElementById('roleName').textContent = Game.player.name;
+          document.getElementById('roleLevel').textContent = Game.player.level;
+          document.getElementById('rebirthCount').textContent = Game.player.rebirthCount;
+          document.getElementById('roleExp').textContent = GameUtils.formatNumber(Game.player.exp);
+          document.getElementById('roleNextExp').textContent = GameUtils.formatNumber(Game.level.getCurrentLevelExpCap());
+          document.getElementById('stageCount').textContent = Game.player.currentStage;
+
+          const attrContainer = document.getElementById('attrContainer');
+          attrContainer.innerHTML = '';
+          for (const attrKey in ATTR_TYPE) {
+            const key = ATTR_TYPE[attrKey];
+            const attrItem = document.createElement('div');
+            attrItem.className = 'attr-item';
+            attrItem.innerHTML = `<span>${ATTR_NAME_MAP[key]}</span><span>${Game.attribute.getAttrDisplayText(key)}</span>`;
+            attrContainer.appendChild(attrItem);
+          }
+        },
+        renderNav: () => {
+          document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === Game.state.currentView);
+          });
+        },
+        switchView: (viewName) => {
+          document.querySelectorAll('.view-container').forEach(view => view.classList.remove('active'));
+          const targetView = document.getElementById(`${viewName}View`);
+          if (targetView) {
+            targetView.classList.add('active');
+            Game.state.currentView = viewName;
+            Game.render.renderNav();
+          }
+        },
+      },
+
+      // ==================== 事件綁定系統 ====================
+      event: {
+        initEvent: () => {
+          // 導航切換事件
+          document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
+            btn.addEventListener('click', () => Game.render.switchView(btn.dataset.view));
+          });
+          // 存檔按鈕事件
+          document.getElementById('saveBtn').addEventListener('click', () => Game.save.saveGame());
+          document.getElementById('resetBtn').addEventListener('click', () => Game.save.resetGame());
+        },
+      },
+
+      // ==================== 遊戲初始化入口 ====================
+      init: {
+        initPlayerData: () => {
+          Game.player = {
+            name: '修真者',
+            level: 1,
+            exp: 0,
+            rebirthCount: 0,
+            gold: 1000,
+            diamond: 100,
+            baseAttr: {},
+            equipAttr: {},
+            gemAttr: {},
+            enhanceAttr: {},
+            extraAttr: {},
+            finalAttr: {},
+            equipment: {},
+            backpack: [],
+            warehouse: [],
+            materials: {},
+            currentStage: 0,
+            rechargeHistory: [],
+            afkData: { lastOfflineTime: Date.now(), stage: 0 },
+          };
+          // 初始化裝備欄位
+          for (const slot in EQUIP_SLOT) {
+            Game.player.equipment[EQUIP_SLOT[slot]] = null;
+          }
+          Game.attribute.initBaseAttr();
+          Game.attribute.calculateFinalAttr();
+        },
+        initGame: () => {
+          Game.save.loadGame();
+          Game.event.initEvent();
+          Game.render.renderAll();
+          Game.save.autoSave();
+          Game.state.isGameLoaded = true;
+          Game.log.addLog('遊戲初始化完成，祝您遊戲愉快！', 'success');
+        },
+      },
+    };
+
+    // 頁面加載完成後啟動遊戲
+    window.addEventListener('DOMContentLoaded', () => Game.init.initGame());
+  </script>
+<style>
+  /* 第二部分：裝備系統專用樣式 - 完全兼容原有主題變量 */
+  /* 裝備界面佈局 */
+  .equipment-layout {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 1rem;
+    height: 100%;
+  }
+
+  /* 穿戴欄容器 */
+  .equip-slot-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  /* 穿戴欄分區 */
+  .equip-slot-section {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .section-title {
+    font-size: 1rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    text-align: center;
+    color: var(--primary-color);
+  }
+
+  /* 裝備格子網格 */
+  .slot-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.8rem;
+  }
+
+  .slot-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* 裝備格子 */
+  .equip-slot {
+    width: 100%;
+    aspect-ratio: 1/1;
+    background-color: rgba(0,0,0,0.3);
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .equip-slot:hover {
+    border-color: var(--primary-color);
+    filter: brightness(1.2);
+  }
+
+  .equip-slot.has-equip {
+    border-width: 3px;
+  }
+
+  /* 品質邊框 */
+  .equip-slot.quality-0 { border-color: var(--quality-0); }
+  .equip-slot.quality-1 { border-color: var(--quality-1); }
+  .equip-slot.quality-2 { border-color: var(--quality-2); }
+  .equip-slot.quality-3 { border-color: var(--quality-3); }
+  .equip-slot.quality-4 { border-color: var(--quality-4); }
+  .equip-slot.quality-5 { border-color: var(--quality-5); }
+  .equip-slot.quality-6 { border-color: var(--quality-6); }
+
+  .slot-name {
+    font-size: 0.75rem;
+    color: #AAAAAA;
+    margin-top: 0.2rem;
+    text-align: center;
+  }
+
+  .equip-slot.has-equip .slot-name {
+    color: #FFFFFF;
+    font-weight: 500;
+  }
+
+  .slot-level {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: var(--warning-color);
+  }
+
+  .slot-star {
+    position: absolute;
+    bottom: 2px;
+    left: 4px;
+    font-size: 0.7rem;
+    color: var(--warning-color);
+    font-weight: bold;
+  }
+
+  /* 背包裝備列表 */
+  .equip-backpack-container {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .backpack-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .backpack-count {
+    color: #AAAAAA;
+    font-size: 0.9rem;
+  }
+
+  .backpack-filter {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .filter-btn {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.8rem;
+  }
+
+  /* 裝備列表網格 */
+  .equip-list-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.8rem;
+    overflow-y: auto;
+    flex: 1;
+    padding: 0.5rem;
+  }
+
+  /* 裝備卡片 */
+  .equip-card {
+    background-color: rgba(0,0,0,0.3);
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .equip-card:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.2);
+  }
+
+  .equip-card.quality-0 { border-color: var(--quality-0); }
+  .equip-card.quality-1 { border-color: var(--quality-1); }
+  .equip-card.quality-2 { border-color: var(--quality-2); }
+  .equip-card.quality-3 { border-color: var(--quality-3); }
+  .equip-card.quality-4 { border-color: var(--quality-4); }
+  .equip-card.quality-5 { border-color: var(--quality-5); }
+  .equip-card.quality-6 { border-color: var(--quality-6); }
+
+  .equip-card-name {
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .equip-card-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #AAAAAA;
+    margin-bottom: 0.2rem;
+  }
+
+  .equip-card-attr {
+    font-size: 0.7rem;
+    color: #CCCCCC;
+    margin-top: 0.3rem;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  /* 裝備詳情彈窗 */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-overlay.active {
+    display: flex;
+  }
+
+  .equip-detail-modal {
+    background-color: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 1.5rem;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .modal-title {
+    font-size: 1.3rem;
+    font-weight: bold;
+  }
+
+  .modal-close-btn {
+    background: none;
+    border: none;
+    color: #AAAAAA;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .modal-close-btn:hover {
+    color: var(--danger-color);
+  }
+
+  .equip-detail-info {
+    margin-bottom: 1rem;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .detail-attr-title {
+    font-weight: bold;
+    margin: 1rem 0 0.5rem 0;
+    color: var(--primary-color);
+  }
+
+  .attr-detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.3rem 0;
+    font-size: 0.95rem;
+  }
+
+  .modal-action-btns {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    justify-content: center;
+  }
+
+  /* 分頁樣式 */
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .pagination-btn {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.8rem;
+  }
+
+  .pagination-info {
+    font-size: 0.8rem;
+    color: #AAAAAA;
+  }
+</style>
+
+<!-- 第二部分：裝備詳情彈窗 -->
+<div id="equipDetailModal" class="modal-overlay">
+  <div class="equip-detail-modal">
+    <div class="modal-header">
+      <h3 id="modalTitle" class="modal-title">裝備詳情</h3>
+      <button class="modal-close-btn" id="modalCloseBtn">&times;</button>
+    </div>
+    <div id="equipDetailContent" class="equip-detail-info">
+      <!-- 裝備詳情由JS動態渲染 -->
+    </div>
+    <div class="modal-action-btns" id="modalActionBtns">
+      <!-- 操作按鈕由JS動態渲染 -->
+    </div>
+  </div>
+</div>
+
+<script>
+  // ==================== 第二部分：裝備系統完整實現 ====================
+  // 完全兼容原有核心框架，無侵入式修改，僅新增擴展功能
+  Object.assign(Game, {
+    // 裝備核心模塊
+    equipment: {
+      // 裝備名稱前綴與後綴（按品質分級）
+      namePrefix: {
+        [EQUIP_QUALITY.NORMAL]: ['破舊的', '普通的', '粗製的'],
+        [EQUIP_QUALITY.GOOD]: ['堅固的', '鋒利的', '耐用的'],
+        [EQUIP_QUALITY.EXCELLENT]: ['精良的', '優質的', '強化的'],
+        [EQUIP_QUALITY.EPIC]: ['史詩的', '傳承的', '榮耀的'],
+        [EQUIP_QUALITY.LEGENDARY]: ['傳說的', '上古的', '不朽的'],
+        [EQUIP_QUALITY.MYTHIC]: ['神話的', '洪荒的', '混沌的'],
+        [EQUIP_QUALITY.SUPREME]: ['至尊的', '開天的', '大道的'],
+      },
+      nameSuffix: {
+        [EQUIP_SLOT.WEAPON]: ['劍', '刀', '槍', '弓', '法杖', '拳套'],
+        [EQUIP_SLOT.HELMET]: ['頭盔', '頭冠', '面具', '斗笠'],
+        [EQUIP_SLOT.ARMOR]: ['甲胄', '戰甲', '法袍', '鎧甲'],
+        [EQUIP_SLOT.BOOTS]: ['戰靴', '鞋子', '護脛', '飛靴'],
+        [EQUIP_SLOT.WRIST]: ['護腕', '護臂', '手鐲'],
+        [EQUIP_SLOT.RING]: ['戒指', '指環', '魔戒'],
+        [EQUIP_SLOT.AMULET]: ['護符', '護身符', '平安符'],
+        [EQUIP_SLOT.GLOVES]: ['手套', '護手', '拳套'],
+        [EQUIP_SLOT.SHOULDER]: ['護肩', '肩甲', '披風'],
+        [EQUIP_SLOT.BELT]: ['腰帶', '腰鏈', '護腰'],
+        [EQUIP_SLOT.NECKLACE]: ['項鏈', '項圈', '吊墜'],
+        [EQUIP_SLOT.DART]: ['暗器', '飛鏢', '飛針'],
+        [EQUIP_SLOT.DRAGON_PATTERN]: ['龍紋', '龍玉', '龍鱗'],
+        [EQUIP_SLOT.TOKEN]: ['令牌', '軍牌', '玉璽'],
+      },
+
+      // 生成隨機裝備（核心方法）
+      generateEquipment: (level, quality, slot) => {
+        // 參數校驗與默認值
+        level = Math.max(1, Math.min(level, GAME_CONFIG.MAX_LEVEL));
+        quality = quality !== undefined ? quality : Game.equipment.getRandomQuality();
+        slot = slot !== undefined ? slot : GameUtils.getRandomInt(0, Object.keys(EQUIP_SLOT).length - 1);
+        if (typeof slot === 'number') slot = Object.values(EQUIP_SLOT)[slot];
+        
+        const qualityConfig = EQUIP_QUALITY_CONFIG[quality];
+        const slotConfig = EQUIP_SLOT_ATTR_CONFIG[slot];
+        const slotName = EQUIP_SLOT_NAME_MAP[slot];
+
+        // 生成裝備名稱
+        const prefixList = Game.equipment.namePrefix[quality];
+        const suffixList = Game.equipment.nameSuffix[slot];
+        const prefix = prefixList[GameUtils.getRandomInt(0, prefixList.length - 1)];
+        const suffix = suffixList[GameUtils.getRandomInt(0, suffixList.length - 1)];
+        const equipName = `${prefix}${suffix}`;
+
+        // 穿戴等級限制
+        const levelRequire = Math.max(1, level + GameUtils.getRandomInt(-2, 0));
+
+        // 基礎屬性生成
+        const baseAttrs = {};
+        const baseAttrList = slotConfig.mainAttrs;
+        const baseAttrCount = slotConfig.baseCount;
+        // 隨機選擇基礎屬性（部位對應的主屬性中選擇）
+        const selectedBaseAttrs = [];
+        const tempBaseAttrs = [...baseAttrList];
+        for (let i = 0; i < baseAttrCount; i++) {
+          if (tempBaseAttrs.length === 0) break;
+          const randomIndex = GameUtils.getRandomInt(0, tempBaseAttrs.length - 1);
+          selectedBaseAttrs.push(tempBaseAttrs.splice(randomIndex, 1)[0]);
+        }
+        // 計算基礎屬性數值
+        const baseValueMultiplier = qualityConfig.baseAttrMultiplier * (1 + (level - 1) * 0.1);
+        selectedBaseAttrs.forEach(attrKey => {
+          if (attrKey === ATTR_TYPE.ALL) {
+            // 全屬性加成，特殊處理
+            for (const allAttr in ATTR_TYPE) {
+              const allAttrKey = ATTR_TYPE[allAttr];
+              const baseValue = ATTR_IS_PERCENT[allAttrKey] 
+                ? 0.1 * baseValueMultiplier 
+                : 2 * baseValueMultiplier;
+              baseAttrs[allAttrKey] = baseValue;
+            }
+          } else {
+            const baseValue = ATTR_IS_PERCENT[attrKey] 
+              ? 0.5 * baseValueMultiplier 
+              : 5 * baseValueMultiplier;
+            baseAttrs[attrKey] = baseValue;
+          }
+        });
+
+        // 拓展屬性生成（按品質決定條數）
+        const extraAttrs = {};
+        const extraAttrCount = qualityConfig.extraAttrCount;
+        if (extraAttrCount > 0) {
+          const allAttrList = Object.values(ATTR_TYPE);
+          const selectedExtraAttrs = [];
+          const tempExtraAttrs = [...allAttrList];
+          for (let i = 0; i < extraAttrCount; i++) {
+            if (tempExtraAttrs.length === 0) break;
+            const randomIndex = GameUtils.getRandomInt(0, tempExtraAttrs.length - 1);
+            selectedExtraAttrs.push(tempExtraAttrs.splice(randomIndex, 1)[0]);
+          }
+          // 計算拓展屬性數值（基礎屬性的70%）
+          const extraValueMultiplier = baseValueMultiplier * 0.7;
+          selectedExtraAttrs.forEach(attrKey => {
+            const extraValue = ATTR_IS_PERCENT[attrKey] 
+              ? 0.3 * extraValueMultiplier 
+              : 3 * extraValueMultiplier;
+            extraAttrs[attrKey] = extraValue;
+          });
+        }
+
+        // 生成裝備對象
+        const equipment = {
+          id: GameUtils.generateUniqueId(),
+          name: equipName,
+          slot: slot,
+          slotName: slotName,
+          quality: quality,
+          qualityName: qualityConfig.name,
+          level: level,
+          levelRequire: levelRequire,
+          star: 1,
+          starLimit: qualityConfig.starLimit,
+          baseAttrs: baseAttrs,
+          extraAttrs: extraAttrs,
+          type: ITEM_TYPE.EQUIPMENT,
+        };
+
+        return equipment;
+      },
+
+      // 隨機生成裝備品質（帶概率權重）
+      getRandomQuality: (minQuality = 0, maxQuality = 6, boost = 0) => {
+        const weights = [
+          5000, // 普通 50%
+          3000, // 優秀 30%
+          1200, // 精良 12%
+          500,  // 史詩 5%
+          200,  // 傳說 2%
+          80,   // 神話 0.8%
+          20,   // 至尊 0.2%
+        ];
+        // 品質提升加成
+        for (let i = 0; i < weights.length; i++) {
+          if (i < minQuality) weights[i] = 0;
+          if (i > maxQuality) weights[i] = 0;
+          if (i > 0) weights[i] += boost * 10;
+        }
+        const totalWeight = weights.reduce((a, b) => a + b, 0);
+        let random = GameUtils.getRandomInt(1, totalWeight);
+        for (let i = 0; i < weights.length; i++) {
+          random -= weights[i];
+          if (random <= 0) return i;
+        }
+        return 0;
+      },
+
+      // 穿戴裝備
+      equipItem: (itemId) => {
+        const item = Game.backpack.getItemById(itemId);
+        if (!item || item.type !== ITEM_TYPE.EQUIPMENT) {
+          Game.log.addLog('穿戴失敗：道具不存在或不是裝備', 'danger');
+          return false;
+        }
+        // 檢查穿戴等級
+        if (Game.player.level < item.levelRequire) {
+          Game.log.addLog(`穿戴失敗：需要等級 ${item.levelRequire}，當前等級 ${Game.player.level}`, 'danger');
+          return false;
+        }
+        // 檢查部位是否已有裝備，有則卸下
+        const targetSlot = item.slot;
+        const oldEquip = Game.player.equipment[targetSlot];
+        if (oldEquip) {
+          Game.backpack.addItem(oldEquip);
+          Game.log.addLog(`已卸下 ${oldEquip.name}`, 'warning');
+        }
+        // 穿戴新裝備
+        Game.player.equipment[targetSlot] = GameUtils.deepClone(item);
+        Game.backpack.removeItem(itemId);
+        // 更新屬性
+        Game.equipment.calculateEquipAttr();
+        Game.log.addLog(`成功穿戴 ${item.qualityName}·${item.name}`, 'success');
+        // 刷新界面
+        Game.render.renderEquipmentView();
+        Game.render.renderRoleView();
+        Game.modal.closeEquipDetailModal();
+        return true;
+      },
+
+      // 卸下指定部位裝備
+      unequipSlot: (slot) => {
+        const equip = Game.player.equipment[slot];
+        if (!equip) {
+          Game.log.addLog('卸下失敗：該部位沒有穿戴裝備', 'danger');
+          return false;
+        }
+        // 檢查背包是否滿
+        if (Game.player.backpack.length >= GAME_CONFIG.BACKPACK_MAX_CAPACITY) {
+          Game.log.addLog('卸下失敗：背包已滿', 'danger');
+          return false;
+        }
+        // 卸下裝備
+        Game.backpack.addItem(equip);
+        Game.player.equipment[slot] = null;
+        // 更新屬性
+        Game.equipment.calculateEquipAttr();
+        Game.log.addLog(`已卸下 ${equip.name}`, 'warning');
+        // 刷新界面
+        Game.render.renderEquipmentView();
+        Game.render.renderRoleView();
+        Game.modal.closeEquipDetailModal();
+        return true;
+      },
+
+      // 計算所有穿戴裝備的總屬性
+      calculateEquipAttr: () => {
+        // 初始化裝備屬性
+        for (const attr in ATTR_TYPE) {
+          const attrKey = ATTR_TYPE[attr];
+          Game.player.equipAttr[attrKey] = 0;
+        }
+        // 遍歷所有穿戴的裝備
+        for (const slot in Game.player.equipment) {
+          const equip = Game.player.equipment[slot];
+          if (!equip) continue;
+          // 計算星級加成（每星提升10%屬性）
+          const starMultiplier = 1 + (equip.star - 1) * 0.1;
+          // 累加基礎屬性
+          for (const attrKey in equip.baseAttrs) {
+            Game.player.equipAttr[attrKey] += equip.baseAttrs[attrKey] * starMultiplier;
+          }
+          // 累加拓展屬性
+          for (const attrKey in equip.extraAttrs) {
+            Game.player.equipAttr[attrKey] += equip.extraAttrs[attrKey] * starMultiplier;
+          }
+        }
+        // 重新計算最終屬性
+        Game.attribute.calculateFinalAttr();
+      },
+
+      // 裝備升星
+      upgradeEquipStar: (itemId, isWorn = false) => {
+        let equip;
+        if (isWorn) {
+          // 已穿戴的裝備
+          equip = Object.values(Game.player.equipment).find(e => e && e.id === itemId);
+        } else {
+          // 背包裡的裝備
+          equip = Game.backpack.getItemById(itemId);
+        }
+        if (!equip) {
+          Game.log.addLog('升星失敗：裝備不存在', 'danger');
+          return false;
+        }
+        // 檢查星級上限
+        if (equip.star >= equip.starLimit) {
+          Game.log.addLog('升星失敗：已達到該品質最大星級', 'danger');
+          return false;
+        }
+        // 升星消耗（後續會接入材料系統，這裡先做基礎邏輯）
+        const costGold = equip.level * equip.star * 100;
+        if (Game.player.gold < costGold) {
+          Game.log.addLog(`升星失敗：需要金幣 ${GameUtils.formatNumber(costGold)}`, 'danger');
+          return false;
+        }
+        // 扣除金幣，提升星級
+        Game.player.gold -= costGold;
+        equip.star += 1;
+        // 更新屬性
+        Game.equipment.calculateEquipAttr();
+        Game.log.addLog(`${equip.name} 升星成功！當前星級：${equip.star}/${equip.starLimit}`, 'success');
+        // 刷新界面
+        Game.render.renderPlayerInfo();
+        Game.render.renderEquipmentView();
+        Game.modal.renderEquipDetailModal(equip, isWorn);
+        Game.render.renderRoleView();
+        return true;
+      },
+
+      // 獲取單個裝備的所有屬性（含星級加成）
+      getEquipAllAttrs: (equip) => {
+        const allAttrs = {};
+        const starMultiplier = 1 + (equip.star - 1) * 0.1;
+        // 合併基礎屬性
+        for (const attrKey in equip.baseAttrs) {
+          allAttrs[attrKey] = (allAttrs[attrKey] || 0) + equip.baseAttrs[attrKey] * starMultiplier;
+        }
+        // 合併拓展屬性
+        for (const attrKey in equip.extraAttrs) {
+          allAttrs[attrKey] = (allAttrs[attrKey] || 0) + equip.extraAttrs[attrKey] * starMultiplier;
+        }
+        return allAttrs;
+      },
+    },
+
+    // 彈窗控制模塊
+    modal: {
+      openEquipDetailModal: (equip, isWorn = false) => {
+        const modal = document.getElementById('equipDetailModal');
+        modal.classList.add('active');
+        Game.modal.renderEquipDetailModal(equip, isWorn);
+      },
+      closeEquipDetailModal: () => {
+        const modal = document.getElementById('equipDetailModal');
+        modal.classList.remove('active');
+      },
+      renderEquipDetailModal: (equip, isWorn = false) => {
+        const titleEl = document.getElementById('modalTitle');
+        const contentEl = document.getElementById('equipDetailContent');
+        const actionEl = document.getElementById('modalActionBtns');
+
+        // 設置標題與品質顏色
+        titleEl.textContent = `${equip.qualityName}·${equip.name}`;
+        titleEl.style.color = EQUIP_QUALITY_CONFIG[equip.quality].color;
+
+        // 渲染詳情內容
+        const allAttrs = Game.equipment.getEquipAllAttrs(equip);
+        contentEl.innerHTML = `
+          <div class="detail-row">
+            <span>裝備部位</span>
+            <span>${equip.slotName}</span>
+          </div>
+          <div class="detail-row">
+            <span>裝備品質</span>
+            <span style="color: ${EQUIP_QUALITY_CONFIG[equip.quality].color}">${equip.qualityName}</span>
+          </div>
+          <div class="detail-row">
+            <span>穿戴等級</span>
+            <span>${equip.levelRequire} 級</span>
+          </div>
+          <div class="detail-row">
+            <span>裝備星級</span>
+            <span style="color: var(--warning-color)">${equip.star} / ${equip.starLimit} 星</span>
+          </div>
+
+          <h4 class="detail-attr-title">基礎屬性</h4>
+          ${Object.keys(equip.baseAttrs).map(attrKey => `
+            <div class="attr-detail-item">
+              <span>${ATTR_NAME_MAP[attrKey]}</span>
+              <span>${GameUtils.formatAttributeValue(attrKey, equip.baseAttrs[attrKey] * (1 + (equip.star - 1) * 0.1))}</span>
+            </div>
+          `).join('')}
+
+          ${Object.keys(equip.extraAttrs).length > 0 ? `
+            <h4 class="detail-attr-title">拓展屬性</h4>
+            ${Object.keys(equip.extraAttrs).map(attrKey => `
+              <div class="attr-detail-item">
+                <span>${ATTR_NAME_MAP[attrKey]}</span>
+                <span>${GameUtils.formatAttributeValue(attrKey, equip.extraAttrs[attrKey] * (1 + (equip.star - 1) * 0.1))}</span>
+              </div>
+            `).join('')}
+          ` : ''}
+        `;
+
+        // 渲染操作按鈕
+        let actionBtnsHtml = '';
+        if (isWorn) {
+          // 已穿戴的裝備：卸下、升星
+          actionBtnsHtml += `<button class="btn btn-warning" id="unequipBtn">卸下裝備</button>`;
+          actionBtnsHtml += `<button class="btn btn-primary" id="upgradeStarBtn">升星</button>`;
+        } else {
+          // 背包裡的裝備：穿戴、升星
+          actionBtnsHtml += `<button class="btn btn-success" id="equipBtn">穿戴裝備</button>`;
+          actionBtnsHtml += `<button class="btn btn-primary" id="upgradeStarBtn">升星</button>`;
+        }
+        actionBtnsHtml += `<button class="btn btn-outline" id="modalCloseBtn2">關閉</button>`;
+        actionEl.innerHTML = actionBtnsHtml;
+
+        // 綁定按鈕事件
+        document.getElementById('modalCloseBtn2').addEventListener('click', Game.modal.closeEquipDetailModal);
+        if (document.getElementById('equipBtn')) {
+          document.getElementById('equipBtn').addEventListener('click', () => Game.equipment.equipItem(equip.id));
+        }
+        if (document.getElementById('unequipBtn')) {
+          document.getElementById('unequipBtn').addEventListener('click', () => Game.equipment.unequipSlot(equip.slot));
+        }
+        if (document.getElementById('upgradeStarBtn')) {
+          document.getElementById('upgradeStarBtn').addEventListener('click', () => Game.equipment.upgradeEquipStar(equip.id, isWorn));
+        }
+      },
+    },
+
+    // 擴展渲染模塊：裝備界面渲染
+    render: Object.assign(Game.render, {
+      // 裝備界面分頁狀態
+      equipBackpackPage: 1,
+      equipBackpackPageSize: 20,
+      equipFilterQuality: null,
+      equipFilterSlot: null,
+
+      // 渲染裝備界面
+      renderEquipmentView: () => {
+        const equipView = document.getElementById('equipmentView');
+        const pageSize = Game.render.equipBackpackPageSize;
+        const currentPage = Game.render.equipBackpackPage;
+
+        // 過濾背包中的裝備
+        let equipList = Game.player.backpack.filter(item => item.type === ITEM_TYPE.EQUIPMENT);
+        // 品質過濾
+        if (Game.render.equipFilterQuality !== null) {
+          equipList = equipList.filter(item => item.quality === Game.render.equipFilterQuality);
+        }
+        // 部位過濾
+        if (Game.render.equipFilterSlot !== null) {
+          equipList = equipList.filter(item => item.slot === Game.render.equipFilterSlot);
+        }
+        // 分頁處理
+        const totalPage = Math.max(1, Math.ceil(equipList.length / pageSize));
+        const startIndex = (currentPage - 1) * pageSize;
+        const paginatedList = equipList.slice(startIndex, startIndex + pageSize);
+
+        // 渲染裝備界面主體
+        equipView.innerHTML = `
+          <div class="equipment-layout">
+            <!-- 左側穿戴欄 -->
+            <div class="equip-slot-container">
+              <!-- 攻擊性部位 -->
+              <div class="equip-slot-section">
+                <h3 class="section-title">攻擊性裝備</h3>
+                <div class="slot-grid slot-grid-4">
+                  ${EQUIP_SLOT_CATEGORY.ATTACK.map(slot => Game.render.renderEquipSlot(slot)).join('')}
+                </div>
+              </div>
+              <!-- 攻防兼備部位 -->
+              <div class="equip-slot-section">
+                <h3 class="section-title">攻防兼備裝備</h3>
+                <div class="slot-grid slot-grid-4">
+                  ${EQUIP_SLOT_CATEGORY.HYBRID.map(slot => Game.render.renderEquipSlot(slot)).join('')}
+                </div>
+              </div>
+              <!-- 防禦性部位 -->
+              <div class="equip-slot-section">
+                <h3 class="section-title">防禦性裝備</h3>
+                <div class="slot-grid">
+                  ${EQUIP_SLOT_CATEGORY.DEFENSE.map(slot => Game.render.renderEquipSlot(slot)).join('')}
+                </div>
+              </div>
+            </div>
+
+            <!-- 右側背包裝備列表 -->
+            <div class="equip-backpack-container">
+              <div class="backpack-header">
+                <h3>背包裝備</h3>
+                <span class="backpack-count">數量：${equipList.length} / ${GAME_CONFIG.BACKPACK_MAX_CAPACITY}</span>
+              </div>
+              
+              <!-- 過濾器 -->
+              <div class="backpack-filter">
+                <button class="btn filter-btn ${Game.render.equipFilterQuality === null ? 'active' : ''}" id="filterAllQuality">全部品質</button>
+                ${Object.values(EQUIP_QUALITY).map(quality => `
+                  <button class="btn filter-btn ${Game.render.equipFilterQuality === quality ? 'active' : ''}" 
+                    style="background-color: ${EQUIP_QUALITY_CONFIG[quality].color}; border-color: ${EQUIP_QUALITY_CONFIG[quality].color}"
+                    data-quality="${quality}">
+                    ${EQUIP_QUALITY_CONFIG[quality].name}
+                  </button>
+                `).join('')}
+              </div>
+
+              <!-- 裝備列表 -->
+              <div class="equip-list-grid">
+                ${paginatedList.length > 0 ? paginatedList.map(equip => Game.render.renderEquipCard(equip)).join('') : '<div style="grid-column: 1/-1; text-align: center; color: #AAAAAA; padding: 2rem;">背包中沒有裝備</div>'}
+              </div>
+
+              <!-- 分頁 -->
+              <div class="pagination">
+                <button class="btn pagination-btn" id="prevPage" ${currentPage <= 1 ? 'disabled' : ''}>上一頁</button>
+                <span class="pagination-info">第 ${currentPage} 頁 / 共 ${totalPage} 頁</span>
+                <button class="btn pagination-btn" id="nextPage" ${currentPage >= totalPage ? 'disabled' : ''}>下一頁</button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // 綁定穿戴欄點擊事件
+        EQUIP_SLOT_CATEGORY.ATTACK.forEach(slot => {
+          document.getElementById(`equip-slot-${slot}`).addEventListener('click', () => {
+            const equip = Game.player.equipment[slot];
+            if (equip) Game.modal.openEquipDetailModal(equip, true);
+          });
+        });
+        EQUIP_SLOT_CATEGORY.HYBRID.forEach(slot => {
+          document.getElementById(`equip-slot-${slot}`).addEventListener('click', () => {
+            const equip = Game.player.equipment[slot];
+            if (equip) Game.modal.openEquipDetailModal(equip, true);
+          });
+        });
+        EQUIP_SLOT_CATEGORY.DEFENSE.forEach(slot => {
+          document.getElementById(`equip-slot-${slot}`).addEventListener('click', () => {
+            const equip = Game.player.equipment[slot];
+            if (equip) Game.modal.openEquipDetailModal(equip, true);
+          });
+        });
+
+        // 綁定裝備卡片點擊事件
+        paginatedList.forEach(equip => {
+          document.getElementById(`equip-card-${equip.id}`).addEventListener('click', () => {
+            Game.modal.openEquipDetailModal(equip, false);
+          });
+        });
+
+        // 綁定過濾器事件
+        document.getElementById('filterAllQuality').addEventListener('click', () => {
+          Game.render.equipFilterQuality = null;
+          Game.render.equipBackpackPage = 1;
+          Game.render.renderEquipmentView();
+        });
+        Object.values(EQUIP_QUALITY).forEach(quality => {
+          const btn = document.querySelector(`.filter-btn[data-quality="${quality}"]`);
+          if (btn) {
+            btn.addEventListener('click', () => {
+              Game.render.equipFilterQuality = quality;
+              Game.render.equipBackpackPage = 1;
+              Game.render.renderEquipmentView();
+            });
+          }
+        });
+
+        // 綁定分頁事件
+        document.getElementById('prevPage').addEventListener('click', () => {
+          if (Game.render.equipBackpackPage > 1) {
+            Game.render.equipBackpackPage -= 1;
+            Game.render.renderEquipmentView();
+          }
+        });
+        document.getElementById('nextPage').addEventListener('click', () => {
+          const totalPage = Math.ceil(equipList.length / pageSize);
+          if (Game.render.equipBackpackPage < totalPage) {
+            Game.render.equipBackpackPage += 1;
+            Game.render.renderEquipmentView();
+          }
+        });
+      },
+
+      // 渲染單個裝備格子
+      renderEquipSlot: (slot) => {
+        const equip = Game.player.equipment[slot];
+        const slotName = EQUIP_SLOT_NAME_MAP[slot];
+        if (!equip) {
+          return `
+            <div class="equip-slot" id="equip-slot-${slot}">
+              <span class="slot-name">${slotName}</span>
+            </div>
+          `;
+        }
+        return `
+          <div class="equip-slot has-equip quality-${equip.quality}" id="equip-slot-${slot}">
+            <span class="slot-level">Lv.${equip.levelRequire}</span>
+            <span class="slot-star">★${equip.star}</span>
+            <span class="slot-name">${equip.name}</span>
+          </div>
+        `;
+      },
+
+      // 渲染單個裝備卡片
+      renderEquipCard: (equip) => {
+        const allAttrs = Game.equipment.getEquipAllAttrs(equip);
+        const firstAttrKey = Object.keys(allAttrs)[0];
+        const firstAttrText = firstAttrKey ? `${ATTR_NAME_MAP[firstAttrKey]}: ${GameUtils.formatAttributeValue(firstAttrKey, allAttrs[firstAttrKey])}` : '';
+        return `
+          <div class="equip-card quality-${equip.quality}" id="equip-card-${equip.id}">
+            <div class="equip-card-name" style="color: ${EQUIP_QUALITY_CONFIG[equip.quality].color}">${equip.name}</div>
+            <div class="equip-card-info">
+              <span>Lv.${equip.levelRequire}</span>
+              <span>★${equip.star}</span>
+            </div>
+            <div class="equip-card-info">
+              <span>${equip.slotName}</span>
+              <span>${equip.qualityName}</span>
+            </div>
+            <div class="equip-card-attr">${firstAttrText}</div>
+          </div>
+        `;
+      },
+    }),
+  });
+
+  // 擴展視圖切換邏輯：切換到裝備界面時自動渲染
+  const originalSwitchView = Game.render.switchView;
+  Game.render.switchView = (viewName) => {
+    originalSwitchView(viewName);
+    if (viewName === 'equipment') {
+      Game.render.renderEquipmentView();
+    }
+  };
+
+  // 彈窗關閉按鈕事件
+  document.getElementById('modalCloseBtn').addEventListener('click', Game.modal.closeEquipDetailModal);
+  // 點擊彈窗背景關閉
+  document.getElementById('equipDetailModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('equipDetailModal')) {
+      Game.modal.closeEquipDetailModal();
+    }
+  });
+
+  // 測試用：添加測試裝備到背包（打開控制台輸入 addTestEquip() 即可）
+  window.addTestEquip = (count = 10, level = 1) => {
+    for (let i = 0; i < count; i++) {
+      const equip = Game.equipment.generateEquipment(level);
+      Game.backpack.addItem(equip);
+    }
+    if (Game.state.currentView === 'equipment') {
+      Game.render.renderEquipmentView();
+    }
+    Game.log.addLog(`已添加 ${count} 件測試裝備`, 'success');
+  };
+
+  // 遊戲加載完成後重新計算裝備屬性（確保存檔加載後屬性正確）
+  window.addEventListener('load', () => {
+    if (Game.state.isGameLoaded) {
+      Game.equipment.calculateEquipAttr();
+      Game.render.renderRoleView();
+    }
+  });
+</script>
+
+<!-- 第三部分：戰鬥結算彈窗 -->
+<div id="battleSettleModal" class="modal-overlay">
+  <div class="equip-detail-modal">
+    <div class="modal-header">
+      <h3 id="settleModalTitle" class="modal-title">戰鬥結算</h3>
+      <button class="modal-close-btn" id="settleModalCloseBtn">&times;</button>
+    </div>
+    <div id="settleModalContent" class="equip-detail-info">
+      <!-- 結算內容由JS動態渲染 -->
+    </div>
+    <div class="modal-action-btns" id="settleModalActionBtns">
+      <!-- 操作按鈕由JS動態渲染 -->
+    </div>
+  </div>
+</div>
+
+<style>
+  /* 第三部分：戰鬥系統專用樣式 - 完全兼容原有主題變量 */
+  .battle-hp-bar {
+    width: 100%;
+    height: 30px;
+    background-color: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 15px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+  }
+  .battle-hp-fill {
+    height: 100%;
+    transition: width 0.2s ease;
+  }
+  .btn-lg {
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+  }
+  #battleLogContainer {
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) var(--secondary-color);
+  }
+  #battleLogContainer::-webkit-scrollbar {
+    width: 4px;
+  }
+  #battleLogContainer::-webkit-scrollbar-thumb {
+    background-color: var(--primary-color);
+    border-radius: 2px;
+  }
+</style>
+
+<script>
+  // ==================== 第三部分：戰鬥與掉落系統完整實現 ====================
+  // 完全兼容原有核心框架，無侵入式修改，僅新增擴展功能
+  const MONSTER_QUALITY = {
+    NORMAL: 0,
+    ELITE: 1,
+    BOSS: 2,
+  };
+
+  const MONSTER_QUALITY_CONFIG = {
+    [MONSTER_QUALITY.NORMAL]: { name: '普通', attrMultiplier: 1.0, dropMultiplier: 1.0, expMultiplier: 1.0 },
+    [MONSTER_QUALITY.ELITE]: { name: '精英', attrMultiplier: 2.5, dropMultiplier: 3.0, expMultiplier: 2.5 },
+    [MONSTER_QUALITY.BOSS]: { name: 'BOSS', attrMultiplier: 5.0, dropMultiplier: 10.0, expMultiplier: 5.0 },
+  };
+
+  const DROP_RULE = {
+    [MONSTER_QUALITY.NORMAL]: {
+      equipMinQuality: 0, equipMaxQuality: 2, equipDropRate: 5,
+      goldBase: 10, expBase: 20, fragmentDropRate: 1, materialDropRate: 10,
+    },
+    [MONSTER_QUALITY.ELITE]: {
+      equipMinQuality: 1, equipMaxQuality: 4, equipDropRate: 20,
+      goldBase: 30, expBase: 50, fragmentDropRate: 10, materialDropRate: 30,
+    },
+    [MONSTER_QUALITY.BOSS]: {
+      equipMinQuality: 2, equipMaxQuality: 6, equipDropRate: 50,
+      goldBase: 100, expBase: 200, fragmentDropRate: 50, materialDropRate: 60,
+      guaranteeCount: 10, // 10次挑戰必出史詩以上品質裝備
+    },
+  };
+
+  Object.assign(Game, {
+    // 怪物模塊
+    monster: {
+      nameList: {
+        [MONSTER_QUALITY.NORMAL]: ['野狼', '盜賊', '野豬', '骷髏兵', '毒蜘蛛', '蝙蝠'],
+        [MONSTER_QUALITY.ELITE]: ['黑風狼王', '盜賊頭目', '巨型野豬', '骷髏將軍', '毒蛛后', '吸血蝙蝠王'],
+        [MONSTER_QUALITY.BOSS]: ['修羅魔王', '深淵巨龍', '上古妖皇', '九幽閻王', '混沌魔神', '滅世巨獸'],
+      },
+      generateMonster: (stageLevel, quality = MONSTER_QUALITY.NORMAL) => {
+        const qualityConfig = MONSTER_QUALITY_CONFIG[quality];
+        const nameList = Game.monster.nameList[quality];
+        const name = nameList[GameUtils.getRandomInt(0, nameList.length - 1)];
+        const baseLevel = stageLevel;
+        const attrMultiplier = qualityConfig.attrMultiplier;
+        
+        const monster = {
+          id: GameUtils.generateUniqueId(),
+          name: name,
+          quality: quality,
+          qualityName: qualityConfig.name,
+          level: baseLevel,
+          attrs: {
+            [ATTR_TYPE.MAX_HP]: Math.floor((100 + baseLevel * 80) * attrMultiplier),
+            [ATTR_TYPE.PHYSICAL_ATTACK]: Math.floor((10 + baseLevel * 6) * attrMultiplier),
+            [ATTR_TYPE.MAGIC_ATTACK]: Math.floor((10 + baseLevel * 6) * attrMultiplier),
+            [ATTR_TYPE.PHYSICAL_DEFENSE]: Math.floor((5 + baseLevel * 3) * attrMultiplier),
+            [ATTR_TYPE.MAGIC_DEFENSE]: Math.floor((5 + baseLevel * 3) * attrMultiplier),
+            [ATTR_TYPE.HIT]: Math.floor((5 + baseLevel * 0.1) * attrMultiplier),
+            [ATTR_TYPE.DODGE]: Math.floor((2 + baseLevel * 0.1) * attrMultiplier),
+            [ATTR_TYPE.CRIT_RATE]: Math.floor((3 + baseLevel * 0.05) * attrMultiplier),
+            [ATTR_TYPE.CRIT_DAMAGE]: Math.floor((150 + baseLevel * 0.1) * attrMultiplier),
+            [ATTR_TYPE.CRIT_DEFENSE]: Math.floor((0 + baseLevel * 0.03) * attrMultiplier),
+          },
+          currentHp: 0,
+          dropRule: DROP_RULE[quality],
+        };
+        monster.currentHp = monster.attrs[ATTR_TYPE.MAX_HP];
+        return monster;
+      },
+    },
+
+    // 掉落系統模塊（含保底與碎片機制）
+    drop: {
+      initGuaranteeData: () => {
+        if (!Game.player.battleData) {
+          Game.player.battleData = { bossChallengeCount: 0, bossGuaranteeProgress: 0 };
+        }
+      },
+      generateDrop: (monster, stageLevel) => {
+        Game.drop.initGuaranteeData();
+        const dropRule = monster.dropRule;
+        const rewards = {
+          exp: Math.floor(dropRule.expBase * stageLevel * (1 + (monster.quality - 1) * 0.5)),
+          gold: Math.floor(dropRule.goldBase * stageLevel * (1 + (monster.quality - 1) * 0.5)),
+          items: [],
+        };
+
+        // BOSS保底機制
+        let equipDropRate = dropRule.equipDropRate;
+        let minQuality = dropRule.equipMinQuality;
+        let maxQuality = dropRule.equipMaxQuality;
+        if (monster.quality === MONSTER_QUALITY.BOSS) {
+          Game.player.battleData.bossChallengeCount += 1;
+          Game.player.battleData.bossGuaranteeProgress += 1;
+          if (Game.player.battleData.bossGuaranteeProgress >= DROP_RULE[MONSTER_QUALITY.BOSS].guaranteeCount) {
+            minQuality = Math.max(minQuality, EQUIP_QUALITY.EPIC);
+            equipDropRate = 100;
+            Game.player.battleData.bossGuaranteeProgress = 0;
+            Game.log.addLog('BOSS保底觸發！必獲得史詩以上品質裝備', 'warning');
+          }
+        }
+
+        // 裝備掉落
+        if (GameUtils.isProbabilityHit(equipDropRate)) {
+          const equipQuality = Game.equipment.getRandomQuality(minQuality, maxQuality, stageLevel / 10);
+          const equip = Game.equipment.generateEquipment(stageLevel, equipQuality);
+          rewards.items.push(equip);
+        }
+        // 碎片掉落
+        if (GameUtils.isProbabilityHit(dropRule.fragmentDropRate)) {
+          const fragmentCount = GameUtils.getRandomInt(1, monster.quality + 1);
+          rewards.items.push({
+            id: GameUtils.generateUniqueId(),
+            name: `${monster.name}碎片`,
+            type: ITEM_TYPE.FRAGMENT,
+            count: fragmentCount,
+            desc: `可用於合成${monster.qualityName}裝備`,
+            level: stageLevel,
+          });
+        }
+        // 材料掉落
+        if (GameUtils.isProbabilityHit(dropRule.materialDropRate)) {
+          const materialCount = GameUtils.getRandomInt(1, 3 + monster.quality * 2);
+          rewards.items.push({
+            id: GameUtils.generateUniqueId(),
+            name: '強化石',
+            type: ITEM_TYPE.MATERIAL,
+            count: materialCount,
+            desc: '裝備強化專用材料',
+          });
+        }
+        return rewards;
+      },
+      grantRewards: (rewards) => {
+        Game.level.addExp(rewards.exp);
+        Game.player.gold += rewards.gold;
+        Game.log.addLog(`獲得金幣：${GameUtils.formatNumber(rewards.gold)}`, 'success');
+        
+        rewards.items.forEach(item => {
+          if (item.type === ITEM_TYPE.EQUIPMENT) {
+            Game.backpack.addItem(item);
+          } else {
+            const existingItem = Game.player.backpack.find(i => i.type === item.type && i.name === item.name);
+            if (existingItem) {
+              existingItem.count = (existingItem.count || 1) + (item.count || 1);
+              Game.log.addLog(`獲得 ${item.name} x${item.count}`, 'success');
+            } else {
+              Game.backpack.addItem(item);
+            }
+          }
+        });
+        Game.render.renderPlayerInfo();
+        if (Game.state.currentView === 'equipment') Game.render.renderEquipmentView();
+      },
+    },
+
+    // 戰鬥核心模塊
+    battle: {
+      currentBattle: null,
+      battleLog: [],
+      isAutoBattle: false,
+      battleInterval: null,
+
+      initBattle: (stageLevel) => {
+        if (Game.state.isInBattle) {
+          Game.log.addLog('當前已有戰鬥進行中', 'warning');
+          return false;
+        }
+        if (stageLevel > Game.player.currentStage + 1) {
+          Game.log.addLog('該關卡未解鎖，請先通關前一關', 'danger');
+          return false;
+        }
+
+        // 生成怪物：每3關精英，每5關BOSS
+        let monsterQuality = MONSTER_QUALITY.NORMAL;
+        if (stageLevel % 5 === 0) monsterQuality = MONSTER_QUALITY.BOSS;
+        else if (stageLevel % 3 === 0) monsterQuality = MONSTER_QUALITY.ELITE;
+        const monster = Game.monster.generateMonster(stageLevel, monsterQuality);
+
+        // 初始化戰鬥狀態
+        Game.battle.currentBattle = {
+          stageLevel: stageLevel,
+          monster: monster,
+          player: {
+            currentHp: Game.player.finalAttr[ATTR_TYPE.MAX_HP],
+            currentMp: Game.player.finalAttr[ATTR_TYPE.MAX_MP],
+            maxHp: Game.player.finalAttr[ATTR_TYPE.MAX_HP],
+            maxMp: Game.player.finalAttr[ATTR_TYPE.MAX_MP],
+          },
+          round: 0,
+          isEnd: false,
+          isWin: false,
+          rewards: null,
+        };
+        Game.battle.battleLog = [];
+        Game.state.isInBattle = true;
+        Game.battle.addBattleLog(`第 ${stageLevel} 關戰鬥開始！對手：${monster.qualityName}·${monster.name}`, 'warning');
+        Game.render.renderBattleView();
+        return true;
+      },
+      addBattleLog: (content, type = 'normal') => {
+        Game.battle.battleLog.unshift({
+          content: `[回合${Game.battle.currentBattle.round}] ${content}`,
+          type: type,
+        });
+        if (Game.battle.battleLog.length > 50) Game.battle.battleLog.pop();
+        Game.render.renderBattleLog();
+      },
+      runRound: () => {
+        if (!Game.battle.currentBattle || Game.battle.currentBattle.isEnd) return;
+        const battle = Game.battle.currentBattle;
+        battle.round += 1;
+
+        // 玩家先手攻擊
+        Game.battle.attackAction('player', 'monster');
+        if (battle.isEnd) return;
+        // 怪物反擊
+        Game.battle.attackAction('monster', 'player');
+        if (battle.isEnd) return;
+
+        Game.render.renderBattleView();
+      },
+      attackAction: (attackerType, defenderType) => {
+        const battle = Game.battle.currentBattle;
+        const attacker = attackerType === 'player' ? Game.player.finalAttr : battle.monster.attrs;
+        const defender = defenderType === 'player' ? Game.player.finalAttr : battle.monster.attrs;
+        const attackerName = attackerType === 'player' ? '你' : battle.monster.name;
+        const defenderName = defenderType === 'player' ? '你' : battle.monster.name;
+
+        // 命中判斷
+        const hitRate = Math.max(50, Math.min(95, attacker[ATTR_TYPE.HIT] - defender[ATTR_TYPE.DODGE] + 80));
+        if (!GameUtils.isProbabilityHit(hitRate)) {
+          Game.battle.addBattleLog(`${attackerName} 的攻擊被 ${defenderName} 閃避了！`, 'normal');
+          return;
+        }
+
+        // 暴擊判斷
+        let isCrit = false;
+        const critRate = Math.max(1, Math.min(80, attacker[ATTR_TYPE.CRIT_RATE] - defender[ATTR_TYPE.CRIT_DEFENSE]));
+        if (GameUtils.isProbabilityHit(critRate)) isCrit = true;
+
+        // 傷害計算
+        const isPhysicalAttack = attacker[ATTR_TYPE.PHYSICAL_ATTACK] >= attacker[ATTR_TYPE.MAGIC_ATTACK];
+        const attackValue = isPhysicalAttack ? attacker[ATTR_TYPE.PHYSICAL_ATTACK] : attacker[ATTR_TYPE.MAGIC_ATTACK];
+        const defenseValue = isPhysicalAttack ? defender[ATTR_TYPE.PHYSICAL_DEFENSE] : defender[ATTR_TYPE.MAGIC_DEFENSE];
+        const damageReduce = defenseValue / (defenseValue + battle.stageLevel * 20);
+        let finalDamage = Math.max(1, Math.floor(attackValue * (1 - damageReduce) * (isCrit ? attacker[ATTR_TYPE.CRIT_DAMAGE] / 100 : 1)));
+
+        // 扣血邏輯
+        if (defenderType === 'player') {
+          battle.player.currentHp = Math.max(0, battle.player.currentHp - finalDamage);
+        } else {
+          battle.monster.currentHp = Math.max(0, battle.monster.currentHp - finalDamage);
+        }
+
+        // 戰鬥日誌
+        const critText = isCrit ? '【暴擊！】' : '';
+        Game.battle.addBattleLog(`${critText}${attackerName} 對 ${defenderName} 造成 ${finalDamage} 點傷害！`, isCrit ? 'warning' : 'normal');
+        Game.battle.checkBattleEnd();
+      },
+      checkBattleEnd: () => {
+        const battle = Game.battle.currentBattle;
+        if (!battle) return false;
+
+        // 玩家勝利
+        if (battle.monster.currentHp <= 0) {
+          battle.isEnd = true;
+          battle.isWin = true;
+          battle.rewards = Game.drop.generateDrop(battle.monster, battle.stageLevel);
+          Game.drop.grantRewards(battle.rewards);
+          if (battle.stageLevel > Game.player.currentStage) {
+            Game.player.currentStage = battle.stageLevel;
+            Game.battle.addBattleLog(`成功解鎖第 ${battle.stageLevel + 1} 關！`, 'success');
+          }
+          Game.battle.addBattleLog(`戰鬥勝利！獲得 ${GameUtils.formatNumber(battle.rewards.exp)} 經驗`, 'success');
+          Game.state.isInBattle = false;
+          Game.battle.stopAutoBattle();
+          Game.modal.openBattleSettleModal();
+          Game.render.renderBattleView();
+          return true;
+        }
+        // 玩家失敗
+        if (battle.player.currentHp <= 0) {
+          battle.isEnd = true;
+          battle.isWin = false;
+          Game.battle.addBattleLog('戰鬥失敗，你被擊敗了！', 'danger');
+          Game.state.isInBattle = false;
+          Game.battle.stopAutoBattle();
+          Game.modal.openBattleSettleModal();
+          Game.render.renderBattleView();
+          return true;
+        }
+        return false;
+      },
+      startAutoBattle: () => {
+        if (Game.battle.isAutoBattle || !Game.battle.currentBattle || Game.battle.currentBattle.isEnd) return;
+        Game.battle.isAutoBattle = true;
+        Game.battle.addBattleLog('自動戰鬥已開啟', 'success');
+        Game.battle.battleInterval = setInterval(() => Game.battle.runRound(), 500);
+        Game.render.renderBattleView();
+      },
+      stopAutoBattle: () => {
+        if (!Game.battle.isAutoBattle) return;
+        clearInterval(Game.battle.battleInterval);
+        Game.battle.isAutoBattle = false;
+        Game.battle.addBattleLog('自動戰鬥已停止', 'warning');
+        Game.render.renderBattleView();
+      },
+      exitBattle: () => {
+        if (Game.state.isInBattle && !Game.battle.currentBattle.isEnd) {
+          Game.battle.stopAutoBattle();
+          Game.state.isInBattle = false;
+          Game.battle.currentBattle = null;
+          Game.battle.battleLog = [];
+          Game.log.addLog('已退出戰鬥', 'warning');
+        }
+        Game.render.renderBattleView();
+      },
+    },
+
+    // 擴展彈窗模塊：戰鬥結算
+    modal: Object.assign(Game.modal, {
+      openBattleSettleModal: () => {
+        document.getElementById('battleSettleModal').classList.add('active');
+        Game.modal.renderBattleSettleModal();
+      },
+      closeBattleSettleModal: () => {
+        document.getElementById('battleSettleModal').classList.remove('active');
+      },
+      renderBattleSettleModal: () => {
+        const battle = Game.battle.currentBattle;
+        if (!battle) return;
+
+        document.getElementById('settleModalTitle').textContent = battle.isWin ? '戰鬥勝利' : '戰鬥失敗';
+        document.getElementById('settleModalTitle').style.color = battle.isWin ? 'var(--success-color)' : 'var(--danger-color)';
+        
+        const contentEl = document.getElementById('settleModalContent');
+        const actionEl = document.getElementById('settleModalActionBtns');
+
+        if (battle.isWin) {
+          contentEl.innerHTML = `
+            <div class="detail-row">
+              <span>通關關卡</span>
+              <span>第 ${battle.stageLevel} 關</span>
+            </div>
+            <div class="detail-row">
+              <span>戰鬥回合</span>
+              <span>${battle.round} 回合</span>
+            </div>
+            <div class="detail-row">
+              <span>獲得經驗</span>
+              <span>${GameUtils.formatNumber(battle.rewards.exp)}</span>
+            </div>
+            <div class="detail-row">
+              <span>獲得金幣</span>
+              <span>${GameUtils.formatNumber(battle.rewards.gold)}</span>
+            </div>
+            <h4 class="detail-attr-title">獲得道具</h4>
+            ${battle.rewards.items.length > 0 ? battle.rewards.items.map(item => `
+              <div class="attr-detail-item">
+                <span>${item.name}</span>
+                <span>x${item.count || 1}</span>
+              </div>
+            `).join('') : '<div style="text-align: center; color: #AAAAAA;">無道具掉落</div>'}
+          `;
+          actionEl.innerHTML = `
+            <button class="btn btn-success" id="nextStageBtn">挑戰下一關</button>
+            <button class="btn btn-outline" id="closeSettleBtn">關閉</button>
+          `;
+        } else {
+          contentEl.innerHTML = `
+            <div class="detail-row">
+              <span>挑戰關卡</span>
+              <span>第 ${battle.stageLevel} 關</span>
+            </div>
+            <div class="detail-row">
+              <span>戰鬥回合</span>
+              <span>${battle.round} 回合</span>
+            </div>
+            <div style="text-align: center; margin: 1rem 0; color: var(--warning-color);">很遺憾，你被擊敗了，請提升實力後再嘗試</div>
+          `;
+          actionEl.innerHTML = `
+            <button class="btn btn-warning" id="retryBtn">再次挑戰</button>
+            <button class="btn btn-outline" id="closeSettleBtn">關閉</button>
+          `;
+        }
+
+        // 按鈕事件綁定
+        document.getElementById('closeSettleBtn').addEventListener('click', Game.modal.closeBattleSettleModal);
+        if (document.getElementById('nextStageBtn')) {
+          document.getElementById('nextStageBtn').addEventListener('click', () => {
+            Game.modal.closeBattleSettleModal();
+            Game.battle.initBattle(battle.stageLevel + 1);
+          });
+        }
+        if (document.getElementById('retryBtn')) {
+          document.getElementById('retryBtn').addEventListener('click', () => {
+            Game.modal.closeBattleSettleModal();
+            Game.battle.initBattle(battle.stageLevel);
+          });
+        }
+      },
+    }),
+
+    // 擴展渲染模塊：戰鬥界面
+    render: Object.assign(Game.render, {
+      renderBattleView: () => {
+        const battleView = document.getElementById('battleView');
+        const currentBattle = Game.battle.currentBattle;
+        const maxStage = Game.player.currentStage + 1;
+
+        battleView.innerHTML = `
+          <div class="equipment-layout">
+            <!-- 左側關卡選擇與戰鬥日誌 -->
+            <div class="equip-slot-container">
+              <div class="equip-slot-section">
+                <h3 class="section-title">關卡選擇</h3>
+                <div class="slot-grid" style="grid-template-columns: repeat(5, 1fr);">
+                  ${Array.from({ length: Math.min(maxStage, 50) }, (_, i) => {
+                    const stage = i + 1;
+                    const isCurrent = currentBattle && currentBattle.stageLevel === stage;
+                    const isBoss = stage % 5 === 0;
+                    const isElite = stage % 3 === 0 && !isBoss;
+                    let btnColor = 'var(--secondary-color)';
+                    if (isBoss) btnColor = 'var(--danger-color)';
+                    if (isElite) btnColor = 'var(--warning-color)';
+                    return `
+                      <button class="btn filter-btn ${isCurrent ? 'active' : ''}" 
+                        style="background-color: ${isCurrent ? 'var(--primary-color)' : btnColor}"
+                        data-stage="${stage}">
+                        ${stage}
+                      </button>
+                    `;
+                  }).join('')}
+                </div>
+                <div style="text-align: center; margin-top: 1rem; color: #AAAAAA; font-size: 0.9rem;">
+                  已解鎖：第 ${maxStage} 關 | 每3關精英怪 | 每5關BOSS
+                </div>
+              </div>
+              <div class="equip-slot-section" style="flex: 1;">
+                <h3 class="section-title">戰鬥日誌</h3>
+                <div id="battleLogContainer" style="height: 300px; overflow-y: auto; display: flex; flex-direction: column-reverse;">
+                  ${Game.battle.battleLog.length > 0 ? Game.battle.battleLog.map(log => `
+                    <div class="log-item ${log.type}" style="margin: 0.1rem 0; font-size: 0.8rem;">${log.content}</div>
+                  `).join('') : '<div style="text-align: center; color: #AAAAAA; padding: 1rem;">暫無戰鬥日誌</div>'}
+                </div>
+              </div>
+            </div>
+            <!-- 右側戰鬥場景 -->
+            <div class="equip-backpack-container">
+              ${currentBattle ? `
+                <div style="text-align: center; margin-bottom: 2rem;">
+                  <h2 style="color: var(--primary-color); margin-bottom: 1rem;">第 ${currentBattle.stageLevel} 關 戰鬥中</h2>
+                  <div style="font-size: 1.1rem; color: ${MONSTER_QUALITY_CONFIG[currentBattle.monster.quality].color};">
+                    對手：${currentBattle.monster.qualityName}·${currentBattle.monster.name} Lv.${currentBattle.monster.level}
+                  </div>
+                </div>
+                <!-- 怪物血條 -->
+                <div style="margin-bottom: 3rem;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span>怪物生命值</span>
+                    <span>${GameUtils.formatNumber(currentBattle.monster.currentHp)} / ${GameUtils.formatNumber(currentBattle.monster.attrs[ATTR_TYPE.MAX_HP])}</span>
+                  </div>
+                  <div class="battle-hp-bar">
+                    <div class="battle-hp-fill" style="width: ${Math.max(0, (currentBattle.monster.currentHp / currentBattle.monster.attrs[ATTR_TYPE.MAX_HP]) * 100)}%; background: linear-gradient(90deg, var(--danger-color), #E84393);"></div>
+                  </div>
+                </div>
+                <!-- 玩家血條 -->
+                <div style="margin-bottom: 3rem;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span>你的生命值</span>
+                    <span>${GameUtils.formatNumber(currentBattle.player.currentHp)} / ${GameUtils.formatNumber(currentBattle.player.maxHp)}</span>
+                  </div>
+                  <div class="battle-hp-bar">
+                    <div class="battle-hp-fill" style="width: ${Math.max(0, (currentBattle.player.currentHp / currentBattle.player.maxHp) * 100)}%; background: linear-gradient(90deg, var(--success-color), var(--primary-color));"></div>
+                  </div>
+                </div>
+                <!-- 戰鬥按鈕 -->
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                  <button class="btn btn-success" id="runRoundBtn" ${currentBattle.isEnd ? 'disabled' : ''}>單回合攻擊</button>
+                  <button class="btn btn-primary" id="autoBattleBtn" ${currentBattle.isEnd ? 'disabled' : ''}>
+                    ${Game.battle.isAutoBattle ? '停止自動戰鬥' : '開啟自動戰鬥'}
+                  </button>
+                  <button class="btn btn-danger" id="exitBattleBtn">退出戰鬥</button>
+                </div>
+              ` : `
+                <div style="text-align: center; padding: 5rem 0;">
+                  <h2 style="color: var(--primary-color); margin-bottom: 2rem;">準備戰鬥</h2>
+                  <p style="color: #AAAAAA; margin-bottom: 3rem;">請在左側選擇要挑戰的關卡，擊敗怪物獲得經驗、金幣和裝備</p>
+                  <button class="btn btn-success btn-lg" id="quickStartBtn">挑戰第 ${maxStage} 關</button>
+                </div>
+              `}
+            </div>
+          </div>
+        `;
+
+        // 事件綁定
+        document.querySelectorAll('.filter-btn[data-stage]').forEach(btn => {
+          btn.addEventListener('click', () => Game.battle.initBattle(parseInt(btn.dataset.stage)));
+        });
+        if (document.getElementById('quickStartBtn')) {
+          document.getElementById('quickStartBtn').addEventListener('click', () => Game.battle.initBattle(maxStage));
+        }
+        if (document.getElementById('runRoundBtn')) {
+          document.getElementById('runRoundBtn').addEventListener('click', () => Game.battle.runRound());
+        }
+        if (document.getElementById('autoBattleBtn')) {
+          document.getElementById('autoBattleBtn').addEventListener('click', () => {
+            Game.battle.isAutoBattle ? Game.battle.stopAutoBattle() : Game.battle.startAutoBattle();
+          });
+        }
+        if (document.getElementById('exitBattleBtn')) {
+          document.getElementById('exitBattleBtn').addEventListener('click', () => Game.battle.exitBattle());
+        }
+      },
+      renderBattleLog: () => {
+        const logContainer = document.getElementById('battleLogContainer');
+        if (!logContainer) return;
+        logContainer.innerHTML = Game.battle.battleLog.length > 0 ? Game.battle.battleLog.map(log => `
+          <div class="log-item ${log.type}" style="margin: 0.1rem 0; font-size: 0.8rem;">${log.content}</div>
+        `).join('') : '<div style="text-align: center; color: #AAAAAA; padding: 1rem;">暫無戰鬥日誌</div>';
+      },
+    }),
+  });
+
+  // 擴展視圖切換邏輯
+  const originalBattleSwitchView = Game.render.switchView;
+  Game.render.switchView = (viewName) => {
+    originalBattleSwitchView(viewName);
+    if (viewName === 'battle') Game.render.renderBattleView();
+  };
+
+  // 彈窗事件綁定
+  document.getElementById('settleModalCloseBtn').addEventListener('click', Game.modal.closeBattleSettleModal);
+  document.getElementById('battleSettleModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('battleSettleModal')) Game.modal.closeBattleSettleModal();
+  });
+
+  // 遊戲加載完成後初始化保底數據
+  window.addEventListener('load', () => {
+    if (Game.state.isGameLoaded) Game.drop.initGuaranteeData();
+  });
+</script>
+<style>
+  /* 第四部分：鍛造系統專用樣式 - 完全兼容原有主題變量 */
+  .forge-tab-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .forge-tab-btn {
+    padding: 0.5rem 1.2rem;
+    border-radius: 5px 5px 0 0;
+    background: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    border-bottom: none;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .forge-tab-btn.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+  }
+  .forge-tab-content {
+    display: none;
+    width: 100%;
+    height: 100%;
+  }
+  .forge-tab-content.active {
+    display: block;
+  }
+  .gem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.8rem;
+  }
+  .gem-card {
+    aspect-ratio: 1/1;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: rgba(0,0,0,0.3);
+  }
+  .gem-card:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.2);
+  }
+  .gem-card.quality-1 { border-color: var(--quality-1); }
+  .gem-card.quality-2 { border-color: var(--quality-2); }
+  .gem-card.quality-3 { border-color: var(--quality-3); }
+  .gem-card.quality-4 { border-color: var(--quality-4); }
+  .gem-card.quality-5 { border-color: var(--quality-5); }
+  .gem-card.quality-6 { border-color: var(--quality-6); }
+  .gem-slot-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .gem-slot {
+    aspect-ratio: 1/1;
+    border: 2px dashed var(--border-color);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .gem-slot.has-gem {
+    border-style: solid;
+    border-color: var(--primary-color);
+  }
+  .gem-slot:hover {
+    border-color: var(--primary-color);
+  }
+  .enhance-progress-bar {
+    width: 100%;
+    height: 20px;
+    background: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+  }
+  .enhance-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--warning-color), var(--danger-color));
+    transition: width 0.3s ease;
+  }
+  .blueprint-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+  .blueprint-card {
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    background: rgba(0,0,0,0.3);
+  }
+  .blueprint-card.quality-3 { border-color: var(--quality-3); }
+  .blueprint-card.quality-4 { border-color: var(--quality-4); }
+  .blueprint-card.quality-5 { border-color: var(--quality-5); }
+  .blueprint-card.quality-6 { border-color: var(--quality-6); }
+</style>
+
+<!-- 第四部分：寶石鑲嵌彈窗 -->
+<div id="gemEmbedModal" class="modal-overlay">
+  <div class="equip-detail-modal">
+    <div class="modal-header">
+      <h3 id="gemModalTitle" class="modal-title">寶石鑲嵌</h3>
+      <button class="modal-close-btn" id="gemModalCloseBtn">&times;</button>
+    </div>
+    <div id="gemModalContent" class="equip-detail-info"></div>
+    <div class="modal-action-btns" id="gemModalActionBtns"></div>
+  </div>
+</div>
+
+<script>
+  // ==================== 第四部分：強化、寶石、鍛造系統完整實現 ====================
+  // 完全兼容原有核心框架，無侵入式修改，僅新增擴展功能
+  const GEM_TYPE = {
+    PHYSICAL_ATTACK: 'physicalAttack',
+    MAGIC_ATTACK: 'magicAttack',
+    PHYSICAL_DEFENSE: 'physicalDefense',
+    MAGIC_DEFENSE: 'magicDefense',
+    MAX_HP: 'maxHp',
+    HIT: 'hit',
+    DODGE: 'dodge',
+    CRIT_RATE: 'critRate',
+    CRIT_DAMAGE: 'critDamage',
+  };
+
+  const GEM_NAME_MAP = {
+    [GEM_TYPE.PHYSICAL_ATTACK]: '物攻寶石',
+    [GEM_TYPE.MAGIC_ATTACK]: '法攻寶石',
+    [GEM_TYPE.PHYSICAL_DEFENSE]: '物防寶石',
+    [GEM_TYPE.MAGIC_DEFENSE]: '法防寶石',
+    [GEM_TYPE.MAX_HP]: '生命寶石',
+    [GEM_TYPE.HIT]: '命中寶石',
+    [GEM_TYPE.DODGE]: '閃避寶石',
+    [GEM_TYPE.CRIT_RATE]: '暴擊寶石',
+    [GEM_TYPE.CRIT_DAMAGE]: '暴傷寶石',
+  };
+
+  const ENHANCE_CONFIG = {
+    maxLevelMultiplier: 3, // 強化等級上限=品質*3
+    baseSuccessRate: 100,
+    successRateDecay: 8, // 每級成功率遞減8%
+    minSuccessRate: 10,
+    failGuaranteeRate: 20, // 失敗累積20%進度保底
+    cost: {
+      goldPerLevel: 100,
+      stonePerLevel: 1,
+    }
+  };
+
+  const GEM_CONFIG = {
+    maxLevel: 10,
+    baseAttrMultiplier: 2, // 每級屬性翻倍
+    composeCount: 3, // 3個同級合成1個高級
+    composeNeedItem: { name: '寶石合成符', type: ITEM_TYPE.MATERIAL },
+    embedNeedItem: { name: '寶石鑲嵌符', type: ITEM_TYPE.MATERIAL },
+    removeNeedItem: { name: '寶石摘除符', type: ITEM_TYPE.MATERIAL },
+  };
+
+  const FORGE_BLUEPRINT_CONFIG = [
+    { id: 'blueprint_epic', name: '史詩裝備藍圖', quality: EQUIP_QUALITY.EPIC, levelRequire: 20, cost: { gold: 10000, material: { name: '秘銀礦', count: 20 } }, minQuality: EQUIP_QUALITY.EPIC, maxQuality: EQUIP_QUALITY.LEGENDARY },
+    { id: 'blueprint_legendary', name: '傳說裝備藍圖', quality: EQUIP_QUALITY.LEGENDARY, levelRequire: 40, cost: { gold: 50000, material: { name: '龍魂礦', count: 20 } }, minQuality: EQUIP_QUALITY.LEGENDARY, maxQuality: EQUIP_QUALITY.MYTHIC },
+    { id: 'blueprint_mythic', name: '神話裝備藍圖', quality: EQUIP_QUALITY.MYTHIC, levelRequire: 60, cost: { gold: 200000, material: { name: '混沌礦', count: 20 } }, minQuality: EQUIP_QUALITY.MYTHIC, maxQuality: EQUIP_QUALITY.SUPREME },
+    { id: 'blueprint_supreme', name: '至尊裝備藍圖', quality: EQUIP_QUALITY.SUPREME, levelRequire: 80, cost: { gold: 1000000, material: { name: '開天礦', count: 20 } }, minQuality: EQUIP_QUALITY.SUPREME, maxQuality: EQUIP_QUALITY.SUPREME },
+  ];
+
+  // 擴展原有裝備生成邏輯，新增強化與寶石孔屬性（無侵入式）
+  const originalGenerateEquipment = Game.equipment.generateEquipment;
+  Game.equipment.generateEquipment = (level, quality, slot) => {
+    const equip = originalGenerateEquipment(level, quality, slot);
+    equip.enhanceLevel = 0;
+    equip.enhanceFailProgress = 0;
+    equip.gemSlotCount = Math.max(1, Math.floor(equip.quality / 2) + 1);
+    equip.gemSlots = Array(equip.gemSlotCount).fill(null);
+    return equip;
+  };
+
+  Object.assign(Game, {
+    // 強化系統模塊
+    enhance: {
+      getMaxEnhanceLevel: (equip) => equip.quality * ENHANCE_CONFIG.maxLevelMultiplier,
+      getEnhanceSuccessRate: (equip) => {
+        const baseRate = ENHANCE_CONFIG.baseSuccessRate - equip.enhanceLevel * ENHANCE_CONFIG.successRateDecay;
+        return Math.max(ENHANCE_CONFIG.minSuccessRate, baseRate);
+      },
+      getEnhanceCost: (equip) => {
+        const level = equip.enhanceLevel + 1;
+        return {
+          gold: level * ENHANCE_CONFIG.cost.goldPerLevel * equip.level,
+          stone: Math.ceil(level * ENHANCE_CONFIG.cost.stonePerLevel),
+        };
+      },
+      enhanceEquip: (itemId, isWorn = false) => {
+        let equip;
+        if (isWorn) equip = Object.values(Game.player.equipment).find(e => e && e.id === itemId);
+        else equip = Game.backpack.getItemById(itemId);
+        if (!equip) {
+          Game.log.addLog('強化失敗：裝備不存在', 'danger');
+          return false;
+        }
+        const maxLevel = Game.enhance.getMaxEnhanceLevel(equip);
+        if (equip.enhanceLevel >= maxLevel) {
+          Game.log.addLog('強化失敗：已達到該品質最大強化等級', 'danger');
+          return false;
+        }
+        const cost = Game.enhance.getEnhanceCost(equip);
+        if (Game.player.gold < cost.gold) {
+          Game.log.addLog(`強化失敗：需要金幣 ${GameUtils.formatNumber(cost.gold)}`, 'danger');
+          return false;
+        }
+        const stoneItem = Game.player.backpack.find(i => i.type === ITEM_TYPE.MATERIAL && i.name === '強化石');
+        if (!stoneItem || (stoneItem.count || 1) < cost.stone) {
+          Game.log.addLog(`強化失敗：需要強化石 x${cost.stone}`, 'danger');
+          return false;
+        }
+        // 扣除消耗
+        Game.player.gold -= cost.gold;
+        stoneItem.count = (stoneItem.count || 1) - cost.stone;
+        if (stoneItem.count <= 0) Game.backpack.removeItem(stoneItem.id);
+        // 強化判定
+        const successRate = Game.enhance.getEnhanceSuccessRate(equip);
+        const isSuccess = GameUtils.isProbabilityHit(successRate);
+        if (isSuccess) {
+          equip.enhanceLevel += 1;
+          equip.enhanceFailProgress = 0;
+          Game.log.addLog(`${equip.name} 強化成功！當前等級 +${equip.enhanceLevel}`, 'success');
+        } else {
+          equip.enhanceFailProgress += ENHANCE_CONFIG.failGuaranteeRate;
+          Game.log.addLog(`${equip.name} 強化失敗！保底進度 +${ENHANCE_CONFIG.failGuaranteeRate}%`, 'warning');
+          // 保底觸發
+          if (equip.enhanceFailProgress >= 100) {
+            equip.enhanceLevel += 1;
+            equip.enhanceFailProgress = 0;
+            Game.log.addLog(`保底觸發！${equip.name} 強化等級 +${equip.enhanceLevel}`, 'success');
+          }
+        }
+        // 更新屬性
+        Game.equipment.calculateEquipAttr();
+        Game.render.renderPlayerInfo();
+        Game.render.renderRoleView();
+        if (Game.state.currentView === 'equipment') Game.render.renderEquipmentView();
+        Game.modal.renderEquipDetailModal(equip, isWorn);
+        return true;
+      },
+      getEnhanceAttrMultiplier: (equip) => 1 + equip.enhanceLevel * 0.1,
+    },
+
+    // 寶石系統模塊
+    gem: {
+      generateGem: (type, level = 1) => {
+        level = Math.max(1, Math.min(level, GEM_CONFIG.maxLevel));
+        const quality = Math.min(6, Math.max(1, Math.ceil(level / 2)));
+        const baseValue = ATTR_IS_PERCENT[type] ? 0.5 : 10;
+        const attrValue = baseValue * Math.pow(GEM_CONFIG.baseAttrMultiplier, level - 1);
+        return {
+          id: GameUtils.generateUniqueId(),
+          name: `${GEM_NAME_MAP[type]} Lv.${level}`,
+          type: ITEM_TYPE.GEM,
+          gemType: type,
+          level: level,
+          quality: quality,
+          attr: { [type]: attrValue },
+          desc: `鑲嵌後增加 ${GameUtils.formatAttributeValue(type, attrValue)} ${ATTR_NAME_MAP[type]}`,
+        };
+      },
+      composeGem: (gemId) => {
+        const gem = Game.backpack.getItemById(gemId);
+        if (!gem || gem.type !== ITEM_TYPE.GEM) {
+          Game.log.addLog('合成失敗：寶石不存在', 'danger');
+          return false;
+        }
+        if (gem.level >= GEM_CONFIG.maxLevel) {
+          Game.log.addLog('合成失敗：已達到寶石最高等級', 'danger');
+          return false;
+        }
+        // 檢查數量
+        const sameGems = Game.player.backpack.filter(i => i.type === ITEM_TYPE.GEM && i.gemType === gem.gemType && i.level === gem.level);
+        if (sameGems.length < GEM_CONFIG.composeCount) {
+          Game.log.addLog(`合成失敗：需要 ${GEM_CONFIG.composeCount} 個同類同級寶石`, 'danger');
+          return false;
+        }
+        // 檢查合成符
+        const composeItem = Game.player.backpack.find(i => i.name === GEM_CONFIG.composeNeedItem.name && i.type === GEM_CONFIG.composeNeedItem.type);
+        if (!composeItem || (composeItem.count || 1) < 1) {
+          Game.log.addLog(`合成失敗：需要 ${GEM_CONFIG.composeNeedItem.name}`, 'danger');
+          return false;
+        }
+        // 扣除消耗
+        for (let i = 0; i < GEM_CONFIG.composeCount; i++) {
+          Game.backpack.removeItem(sameGems[i].id);
+        }
+        composeItem.count = (composeItem.count || 1) - 1;
+        if (composeItem.count <= 0) Game.backpack.removeItem(composeItem.id);
+        // 生成新寶石
+        const newGem = Game.gem.generateGem(gem.gemType, gem.level + 1);
+        Game.backpack.addItem(newGem);
+        Game.log.addLog(`合成成功！獲得 ${newGem.name}`, 'success');
+        Game.render.renderForgeView();
+        return true;
+      },
+      embedGem: (equip, gemId, slotIndex, isWorn = false) => {
+        const gem = Game.backpack.getItemById(gemId);
+        if (!gem || gem.type !== ITEM_TYPE.GEM) {
+          Game.log.addLog('鑲嵌失敗：寶石不存在', 'danger');
+          return false;
+        }
+        if (slotIndex < 0 || slotIndex >= equip.gemSlotCount) {
+          Game.log.addLog('鑲嵌失敗：寶石孔不存在', 'danger');
+          return false;
+        }
+        if (equip.gemSlots[slotIndex]) {
+          Game.log.addLog('鑲嵌失敗：該孔已鑲嵌寶石', 'danger');
+          return false;
+        }
+        // 檢查鑲嵌符
+        const embedItem = Game.player.backpack.find(i => i.name === GEM_CONFIG.embedNeedItem.name && i.type === GEM_CONFIG.embedNeedItem.type);
+        if (!embedItem || (embedItem.count || 1) < 1) {
+          Game.log.addLog(`鑲嵌失敗：需要 ${GEM_CONFIG.embedNeedItem.name}`, 'danger');
+          return false;
+        }
+        // 扣除消耗
+        Game.backpack.removeItem(gemId);
+        embedItem.count = (embedItem.count || 1) - 1;
+        if (embedItem.count <= 0) Game.backpack.removeItem(embedItem.id);
+        // 鑲嵌寶石
+        equip.gemSlots[slotIndex] = gem;
+        Game.log.addLog(`${gem.name} 鑲嵌成功！`, 'success');
+        // 更新屬性
+        Game.equipment.calculateEquipAttr();
+        Game.render.renderRoleView();
+        Game.modal.renderGemEmbedModal(equip, isWorn);
+        return true;
+      },
+      removeGem: (equip, slotIndex, isWorn = false) => {
+        if (slotIndex < 0 || slotIndex >= equip.gemSlotCount || !equip.gemSlots[slotIndex]) {
+          Game.log.addLog('摘除失敗：該孔沒有鑲嵌寶石', 'danger');
+          return false;
+        }
+        // 檢查摘除符
+        const removeItem = Game.player.backpack.find(i => i.name === GEM_CONFIG.removeNeedItem.name && i.type === GEM_CONFIG.removeNeedItem.type);
+        if (!removeItem || (removeItem.count || 1) < 1) {
+          Game.log.addLog(`摘除失敗：需要 ${GEM_CONFIG.removeNeedItem.name}`, 'danger');
+          return false;
+        }
+        // 扣除消耗
+        removeItem.count = (removeItem.count || 1) - 1;
+        if (removeItem.count <= 0) Game.backpack.removeItem(removeItem.id);
+        // 摘除寶石
+        const gem = equip.gemSlots[slotIndex];
+        equip.gemSlots[slotIndex] = null;
+        Game.backpack.addItem(gem);
+        Game.log.addLog(`${gem.name} 摘除成功！`, 'success');
+        // 更新屬性
+        Game.equipment.calculateEquipAttr();
+        Game.render.renderRoleView();
+        Game.modal.renderGemEmbedModal(equip, isWorn);
+        return true;
+      },
+      calculateGemAttr: () => {
+        for (const attr in ATTR_TYPE) Game.player.gemAttr[ATTR_TYPE[attr]] = 0;
+        for (const slot in Game.player.equipment) {
+          const equip = Game.player.equipment[slot];
+          if (!equip) continue;
+          equip.gemSlots.forEach(gem => {
+            if (!gem) return;
+            for (const attrKey in gem.attr) Game.player.gemAttr[attrKey] += gem.attr[attrKey];
+          });
+        }
+        Game.attribute.calculateFinalAttr();
+      },
+    },
+
+    // 鍛造系統模塊
+    forge: {
+      forgeEquipment: (blueprintId) => {
+        const blueprint = FORGE_BLUEPRINT_CONFIG.find(b => b.id === blueprintId);
+        if (!blueprint) {
+          Game.log.addLog('打造失敗：藍圖不存在', 'danger');
+          return false;
+        }
+        if (Game.player.level < blueprint.levelRequire) {
+          Game.log.addLog(`打造失敗：需要等級 ${blueprint.levelRequire}`, 'danger');
+          return false;
+        }
+        // 檢查消耗
+        if (Game.player.gold < blueprint.cost.gold) {
+          Game.log.addLog(`打造失敗：需要金幣 ${GameUtils.formatNumber(blueprint.cost.gold)}`, 'danger');
+          return false;
+        }
+        const materialItem = Game.player.backpack.find(i => i.name === blueprint.cost.material.name && i.type === ITEM_TYPE.MATERIAL);
+        if (!materialItem || (materialItem.count || 1) < blueprint.cost.material.count) {
+          Game.log.addLog(`打造失敗：需要 ${blueprint.cost.material.name} x${blueprint.cost.material.count}`, 'danger');
+          return false;
+        }
+        // 檢查藍圖
+        const blueprintItem = Game.player.backpack.find(i => i.type === ITEM_TYPE.BLUEPRINT && i.blueprintId === blueprintId);
+        if (!blueprintItem) {
+          Game.log.addLog('打造失敗：對應藍圖不存在', 'danger');
+          return false;
+        }
+        // 扣除消耗
+        Game.player.gold -= blueprint.cost.gold;
+        materialItem.count = (materialItem.count || 1) - blueprint.cost.material.count;
+        if (materialItem.count <= 0) Game.backpack.removeItem(materialItem.id);
+        Game.backpack.removeItem(blueprintItem.id);
+        // 生成裝備
+        const equipQuality = Game.equipment.getRandomQuality(blueprint.minQuality, blueprint.maxQuality, Game.player.level / 10);
+        const equip = Game.equipment.generateEquipment(Game.player.level, equipQuality);
+        Game.backpack.addItem(equip);
+        Game.log.addLog(`打造成功！獲得 ${equip.qualityName}·${equip.name}`, 'success');
+        Game.render.renderForgeView();
+        if (Game.state.currentView === 'equipment') Game.render.renderEquipmentView();
+        return true;
+      },
+    },
+
+    // 擴展彈窗模塊
+    modal: Object.assign(Game.modal, {
+      openGemEmbedModal: (equip, isWorn = false) => {
+        document.getElementById('gemEmbedModal').classList.add('active');
+        Game.modal.renderGemEmbedModal(equip, isWorn);
+      },
+      closeGemEmbedModal: () => {
+        document.getElementById('gemEmbedModal').classList.remove('active');
+      },
+      renderGemEmbedModal: (equip, isWorn = false) => {
+        const titleEl = document.getElementById('gemModalTitle');
+        const contentEl = document.getElementById('gemModalContent');
+        const actionEl = document.getElementById('gemModalActionBtns');
+        titleEl.textContent = `${equip.name} - 寶石鑲嵌`;
+        titleEl.style.color = EQUIP_QUALITY_CONFIG[equip.quality].color;
+        contentEl.innerHTML = `
+          <div class="detail-row">
+            <span>裝備品質</span>
+            <span style="color: ${EQUIP_QUALITY_CONFIG[equip.quality].color}">${equip.qualityName}</span>
+          </div>
+          <div class="detail-row">
+            <span>寶石孔數</span>
+            <span>${equip.gemSlotCount} 個</span>
+          </div>
+          <h4 class="detail-attr-title">寶石孔</h4>
+          <div class="gem-slot-grid">
+            ${equip.gemSlots.map((gem, index) => `
+              <div class="gem-slot ${gem ? 'has-gem' : ''}" id="gem-slot-${index}">
+                ${gem ? `
+                  <span style="font-size: 0.8rem; font-weight: bold;">${gem.name}</span>
+                  <span style="font-size: 0.7rem; color: #AAAAAA;">${Object.keys(gem.attr).map(k => GameUtils.formatAttributeValue(k, gem.attr[k])).join('')}</span>
+                ` : `<span style="font-size: 0.8rem; color: #AAAAAA;">空孔</span>`}
+              </div>
+            `).join('')}
+          </div>
+          <h4 class="detail-attr-title">可鑲嵌寶石</h4>
+          <div class="gem-grid">
+            ${Game.player.backpack.filter(i => i.type === ITEM_TYPE.GEM).length > 0 ? Game.player.backpack.filter(i => i.type === ITEM_TYPE.GEM).map(gem => `
+              <div class="gem-card quality-${gem.quality}" id="gem-card-${gem.id}">
+                <span style="font-size: 0.8rem; font-weight: bold;">${gem.name}</span>
+                <span style="font-size: 0.7rem; color: #AAAAAA; text-align: center;">${gem.desc}</span>
+              </div>
+            `).join('') : '<div style="grid-column: 1/-1; text-align: center; color: #AAAAAA;">背包中沒有寶石</div>'}
+          </div>
+        `;
+        actionEl.innerHTML = `<button class="btn btn-outline" id="gemModalCloseBtn2">關閉</button>`;
+        // 寶石孔點擊事件
+        equip.gemSlots.forEach((gem, index) => {
+          document.getElementById(`gem-slot-${index}`).addEventListener('click', () => {
+            if (gem) Game.gem.removeGem(equip, index, isWorn);
+            else if (Game.modal.selectedGemId) Game.gem.embedGem(equip, Game.modal.selectedGemId, index, isWorn);
+          });
+        });
+        // 寶石選擇事件
+        Game.player.backpack.filter(i => i.type === ITEM_TYPE.GEM).forEach(gem => {
+          document.getElementById(`gem-card-${gem.id}`).addEventListener('click', () => {
+            Game.modal.selectedGemId = gem.id;
+            document.querySelectorAll('.gem-card').forEach(card => card.style.filter = 'none');
+            document.getElementById(`gem-card-${gem.id}`).style.filter = 'brightness(1.5)';
+          });
+        });
+        document.getElementById('gemModalCloseBtn2').addEventListener('click', Game.modal.closeGemEmbedModal);
+      },
+      selectedGemId: null,
+    }),
+
+    // 擴展渲染模塊：鍛造界面
+    render: Object.assign(Game.render, {
+      currentForgeTab: 'enhance',
+      renderForgeView: () => {
+        const forgeView = document.getElementById('forgeView');
+        forgeView.innerHTML = `
+          <div class="card">
+            <div class="forge-tab-nav">
+              <button class="forge-tab-btn ${Game.render.currentForgeTab === 'enhance' ? 'active' : ''}" data-tab="enhance">裝備強化</button>
+              <button class="forge-tab-btn ${Game.render.currentForgeTab === 'gem' ? 'active' : ''}" data-tab="gem">寶石系統</button>
+              <button class="forge-tab-btn ${Game.render.currentForgeTab === 'forge' ? 'active' : ''}" data-tab="forge">裝備打造</button>
+              <button class="forge-tab-btn ${Game.render.currentForgeTab === 'compose' ? 'active' : ''}" data-tab="compose">道具合成</button>
+            </div>
+            <!-- 強化標籤 -->
+            <div class="forge-tab-content ${Game.render.currentForgeTab === 'enhance' ? 'active' : ''}" id="enhanceTab">
+              <h2 class="card-title">裝備強化</h2>
+              <div class="attr-grid" style="grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));">
+                ${[...Object.values(Game.player.equipment).filter(e => e), ...Game.player.backpack.filter(i => i.type === ITEM_TYPE.EQUIPMENT)].map(equip => {
+                  const maxLevel = Game.enhance.getMaxEnhanceLevel(equip);
+                  const cost = Game.enhance.getEnhanceCost(equip);
+                  const successRate = Game.enhance.getEnhanceSuccessRate(equip);
+                  const isWorn = Object.values(Game.player.equipment).includes(equip);
+                  return `
+                    <div class="card" style="margin: 0;">
+                      <h3 style="color: ${EQUIP_QUALITY_CONFIG[equip.quality].color}; margin-bottom: 0.5rem;">${equip.name} ${isWorn ? '[已穿戴]' : ''}</h3>
+                      <div class="detail-row" style="padding: 0.2rem 0;">
+                        <span>強化等級</span>
+                        <span style="color: var(--warning-color);">+${equip.enhanceLevel} / ${maxLevel}</span>
+                      </div>
+                      <div class="detail-row" style="padding: 0.2rem 0;">
+                        <span>成功率</span>
+                        <span>${successRate}%</span>
+                      </div>
+                      <div class="detail-row" style="padding: 0.2rem 0;">
+                        <span>保底進度</span>
+                        <span>${equip.enhanceFailProgress}% / 100%</span>
+                      </div>
+                      <div class="enhance-progress-bar">
+                        <div class="enhance-progress-fill" style="width: ${equip.enhanceFailProgress}%"></div>
+                      </div>
+                      <div class="detail-row" style="padding: 0.2rem 0;">
+                        <span>強化消耗</span>
+                        <span>金幣${GameUtils.formatNumber(cost.gold)} | 強化石x${cost.stone}</span>
+                      </div>
+                      <button class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="enhance-btn-${equip.id}">
+                        ${equip.enhanceLevel >= maxLevel ? '已滿級' : '立即強化'}
+                      </button>
+                    </div>
+                  `;
+                }).join('')}
+                ${[...Object.values(Game.player.equipment).filter(e => e), ...Game.player.backpack.filter(i => i.type === ITEM_TYPE.EQUIPMENT)].length === 0 ? '<div style="grid-column: 1/-1; text-align: center; color: #AAAAAA; padding: 2rem;">暫無可強化的裝備</div>' : ''}
+              </div>
+            </div>
+            <!-- 寶石標籤 -->
+            <div class="forge-tab-content ${Game.render.currentForgeTab === 'gem' ? 'active' : ''}" id="gemTab">
+              <h2 class="card-title">寶石列表</h2>
+              <div class="gem-grid">
+                ${Game.player.backpack.filter(i => i.type === ITEM_TYPE.GEM).map(gem => `
+                  <div class="gem-card quality-${gem.quality}" id="compose-gem-${gem.id}">
+                    <span style="font-size: 0.8rem; font-weight: bold;">${gem.name}</span>
+                    <span style="font-size: 0.7rem; color: #AAAAAA; text-align: center;">${gem.desc}</span>
+                    <button class="btn btn-sm" style="width: 100%; margin-top: 0.5rem; font-size: 0.7rem;" ${gem.level >= GEM_CONFIG.maxLevel ? 'disabled' : ''}>合成</button>
+                  </div>
+                `).join('')}
+                ${Game.player.backpack.filter(i => i.type === ITEM_TYPE.GEM).length === 0 ? '<div style="grid-column: 1/-1; text-align: center; color: #AAAAAA; padding: 2rem;">背包中沒有寶石</div>' : ''}
+              </div>
+            </div>
+            <!-- 打造標籤 -->
+            <div class="forge-tab-content ${Game.render.currentForgeTab === 'forge' ? 'active' : ''}" id="forgeTab">
+              <h2 class="card-title">裝備打造</h2>
+              <div class="blueprint-grid">
+                ${FORGE_BLUEPRINT_CONFIG.map(blueprint => {
+                  const hasBlueprint = Game.player.backpack.some(i => i.type === ITEM_TYPE.BLUEPRINT && i.blueprintId === blueprint.id);
+                  const materialItem = Game.player.backpack.find(i => i.name === blueprint.cost.material.name && i.type === ITEM_TYPE.MATERIAL);
+                  const materialCount = materialItem ? (materialItem.count || 0) : 0;
+                  return `
+                    <div class="blueprint-card quality-${blueprint.quality}">
+                      <h3 style="color: ${EQUIP_QUALITY_CONFIG[blueprint.quality].color}; margin-bottom: 0.5rem;">${blueprint.name}</h3>
+                      <div class="detail-row" style="padding: 0.2rem 0;">
+                        <span>穿戴等級</span>
+                        <span>${blueprint.levelRequire} 級</span>
+                      </div>
+                      <div class="detail-row" style="padding: 0.2rem 0;">
+                        <span>保底品質</span>
+                        <span style="color: ${EQUIP_QUALITY_CONFIG[blueprint.minQuality].color}">${EQUIP_QUALITY_CONFIG[blueprint.minQuality].name}</span>
+                      </div>
+                      <div class="detail-row" style="padding: 0.2rem 0;">
+                        <span>最高品質</span>
+                        <span style="color: ${EQUIP_QUALITY_CONFIG[blueprint.maxQuality].color}">${EQUIP_QUALITY_CONFIG[blueprint.maxQuality].name}</span>
+                      </div>
+                      <div class="detail-row" style="padding: 0.2rem 0;">
+                        <span>打造消耗</span>
+                        <span>金幣${GameUtils.formatNumber(blueprint.cost.gold)}</span>
+                      </div>
+                      <div class="detail-row" style="padding: 0.2rem 0;">
+                        <span>${blueprint.cost.material.name}</span>
+                        <span>${materialCount} / ${blueprint.cost.material.count}</span>
+                      </div>
+                      <div class="detail-row" style="padding: 0.2rem 0;">
+                        <span>藍圖擁有</span>
+                        <span style="color: ${hasBlueprint ? 'var(--success-color)' : 'var(--danger-color)'}">${hasBlueprint ? '已擁有' : '未擁有'}</span>
+                      </div>
+                      <button class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="forge-btn-${blueprint.id}" ${!hasBlueprint || Game.player.level < blueprint.levelRequire ? 'disabled' : ''}>
+                        ${Game.player.level < blueprint.levelRequire ? '等級不足' : !hasBlueprint ? '缺少藍圖' : '立即打造'}
+                      </button>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+            <!-- 合成標籤 -->
+            <div class="forge-tab-content ${Game.render.currentForgeTab === 'compose' ? 'active' : ''}" id="composeTab">
+              <h2 class="card-title">道具合成</h2>
+              <div style="text-align: center; color: #AAAAAA; padding: 2rem;">合成系統已開放，寶石合成可在寶石標籤操作，後續將開放更多道具合成</div>
+            </div>
+          </div>
+        `;
+        // 標籤切換事件
+        document.querySelectorAll('.forge-tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            Game.render.currentForgeTab = btn.dataset.tab;
+            Game.render.renderForgeView();
+          });
+        });
+        // 強化按鈕事件
+        [...Object.values(Game.player.equipment).filter(e => e), ...Game.player.backpack.filter(i => i.type === ITEM_TYPE.EQUIPMENT)].forEach(equip => {
+          const btn = document.getElementById(`enhance-btn-${equip.id}`);
+          if (btn) {
+            const isWorn = Object.values(Game.player.equipment).includes(equip);
+            btn.addEventListener('click', () => Game.enhance.enhanceEquip(equip.id, isWorn));
+          }
+        });
+        // 寶石合成按鈕事件
+        Game.player.backpack.filter(i => i.type === ITEM_TYPE.GEM).forEach(gem => {
+          const btn = document.querySelector(`#compose-gem-${gem.id} button`);
+          if (btn) btn.addEventListener('click', () => Game.gem.composeGem(gem.id));
+        });
+        // 打造按鈕事件
+        FORGE_BLUEPRINT_CONFIG.forEach(blueprint => {
+          const btn = document.getElementById(`forge-btn-${blueprint.id}`);
+          if (btn) btn.addEventListener('click', () => Game.forge.forgeEquipment(blueprint.id));
+        });
+      },
+    }),
+  });
+
+  // 擴展裝備屬性計算邏輯，新增強化加成
+  const originalCalculateEquipAttr = Game.equipment.calculateEquipAttr;
+  Game.equipment.calculateEquipAttr = () => {
+    for (const attr in ATTR_TYPE) Game.player.equipAttr[attr] = 0;
+    for (const slot in Game.player.equipment) {
+      const equip = Game.player.equipment[slot];
+      if (!equip) continue;
+      const starMultiplier = 1 + (equip.star - 1) * 0.1;
+      const enhanceMultiplier = Game.enhance.getEnhanceAttrMultiplier(equip);
+      const totalMultiplier = starMultiplier * enhanceMultiplier;
+      for (const attrKey in equip.baseAttrs) Game.player.equipAttr[attrKey] += equip.baseAttrs[attrKey] * totalMultiplier;
+      for (const attrKey in equip.extraAttrs) Game.player.equipAttr[attrKey] += equip.extraAttrs[attrKey] * totalMultiplier;
+    }
+    Game.gem.calculateGemAttr();
+    Game.attribute.calculateFinalAttr();
+  };
+
+  // 擴展視圖切換邏輯
+  const originalForgeSwitchView = Game.render.switchView;
+  Game.render.switchView = (viewName) => {
+    originalForgeSwitchView(viewName);
+    if (viewName === 'forge') Game.render.renderForgeView();
+  };
+
+  // 擴展裝備詳情彈窗，新增寶石按鈕
+  const originalRenderEquipDetailModal = Game.modal.renderEquipDetailModal;
+  Game.modal.renderEquipDetailModal = (equip, isWorn = false) => {
+    originalRenderEquipDetailModal(equip, isWorn);
+    const actionEl = document.getElementById('modalActionBtns');
+    const gemBtn = document.createElement('button');
+    gemBtn.className = 'btn btn-warning';
+    gemBtn.textContent = '寶石鑲嵌';
+    gemBtn.addEventListener('click', () => {
+      Game.modal.closeEquipDetailModal();
+      Game.modal.openGemEmbedModal(equip, isWorn);
+    });
+    actionEl.insertBefore(gemBtn, actionEl.firstChild);
+  };
+
+  // 擴展存檔加載邏輯，補全舊裝備屬性
+  const originalLoadGame = Game.save.loadGame;
+  Game.save.loadGame = () => {
+    const result = originalLoadGame();
+    // 補全所有裝備的強化與寶石屬性
+    [...Object.values(Game.player.equipment).filter(e => e), ...Game.player.backpack.filter(i => i.type === ITEM_TYPE.EQUIPMENT)].forEach(equip => {
+      if (equip.enhanceLevel === undefined) equip.enhanceLevel = 0;
+      if (equip.enhanceFailProgress === undefined) equip.enhanceFailProgress = 0;
+      if (equip.gemSlotCount === undefined) equip.gemSlotCount = Math.max(1, Math.floor(equip.quality / 2) + 1);
+      if (!equip.gemSlots) equip.gemSlots = Array(equip.gemSlotCount).fill(null);
+    });
+    Game.equipment.calculateEquipAttr();
+    return result;
+  };
+
+  // 彈窗事件綁定
+  document.getElementById('gemModalCloseBtn').addEventListener('click', Game.modal.closeGemEmbedModal);
+  document.getElementById('gemEmbedModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('gemEmbedModal')) Game.modal.closeGemEmbedModal();
+  });
+
+  // 測試方法：添加測試材料與寶石
+  window.addTestMaterial = (count = 100) => {
+    const materials = [
+      { name: '強化石', type: ITEM_TYPE.MATERIAL, count: count, desc: '裝備強化專用材料' },
+      { name: '寶石合成符', type: ITEM_TYPE.MATERIAL, count: count, desc: '寶石合成專用道具' },
+      { name: '寶石鑲嵌符', type: ITEM_TYPE.MATERIAL, count: count, desc: '寶石鑲嵌專用道具' },
+      { name: '寶石摘除符', type: ITEM_TYPE.MATERIAL, count: count, desc: '寶石摘除專用道具' },
+      { name: '秘銀礦', type: ITEM_TYPE.MATERIAL, count: count, desc: '史詩裝備打造材料' },
+      { name: '龍魂礦', type: ITEM_TYPE.MATERIAL, count: count, desc: '傳說裝備打造材料' },
+      { name: '混沌礦', type: ITEM_TYPE.MATERIAL, count: count, desc: '神話裝備打造材料' },
+      { name: '開天礦', type: ITEM_TYPE.MATERIAL, count: count, desc: '至尊裝備打造材料' },
+    ];
+    materials.forEach(material => {
+      const existing = Game.player.backpack.find(i => i.type === material.type && i.name === material.name);
+      if (existing) existing.count += material.count;
+      else Game.backpack.addItem({ ...material, id: GameUtils.generateUniqueId() });
+    });
+    // 添加測試藍圖
+    FORGE_BLUEPRINT_CONFIG.forEach(blueprint => {
+      Game.backpack.addItem({
+        id: GameUtils.generateUniqueId(),
+        name: blueprint.name,
+        type: ITEM_TYPE.BLUEPRINT,
+        blueprintId: blueprint.id,
+        desc: `用於打造${blueprint.qualityName}品質裝備`,
+      });
+    });
+    // 添加測試寶石
+    Object.values(GEM_TYPE).forEach(type => {
+      for (let i = 0; i < 10; i++) {
+        Game.backpack.addItem(Game.gem.generateGem(type, 1));
+      }
+    });
+    Game.log.addLog(`已添加 ${count} 份測試材料、藍圖與寶石`, 'success');
+    if (Game.state.currentView === 'forge') Game.render.renderForgeView();
+  };
+</script>
+<style>
+  /* 第五部分：充值與商城專用樣式 - 完全兼容原有主題變量 */
+  .recharge-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+  .recharge-card {
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.2rem;
+    background: linear-gradient(135deg, rgba(142, 68, 173, 0.2), rgba(0,0,0,0.3));
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .recharge-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 15px rgba(142, 68, 173, 0.4);
+  }
+  .recharge-card.first-charge {
+    border-color: var(--warning-color);
+  }
+  .shop-category-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .shop-category-btn {
+    padding: 0.5rem 1.2rem;
+    border-radius: 5px;
+    background: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .shop-category-btn.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+  }
+  .goods-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+  }
+  .goods-card {
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    background: rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: all 0.2s ease;
+  }
+  .goods-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--primary-color);
+  }
+  .goods-name {
+    font-weight: bold;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+  .goods-desc {
+    font-size: 0.75rem;
+    color: #AAAAAA;
+    text-align: center;
+    margin-bottom: 0.8rem;
+    flex: 1;
+  }
+  .goods-price {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+  }
+  .goods-limit {
+    font-size: 0.7rem;
+    color: var(--warning-color);
+    margin-bottom: 0.5rem;
+  }
+  .compose-type-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .compose-type-btn {
+    padding: 0.4rem 1rem;
+    font-size: 0.9rem;
+  }
+</style>
+
+<script>
+  // ==================== 第五部分：充值、商城、合成系統完整實現 ====================
+  // 完全兼容原有核心框架，無侵入式修改，僅新增擴展功能
+  const RECHARGE_CONFIG = [
+    { id: '6', price: 6, baseDiamond: 60, name: '6元檔', giftItems: [{ name: '強化石', count: 10 }, { name: '金幣', count: 10000 }] },
+    { id: '30', price: 30, baseDiamond: 300, name: '30元檔', giftItems: [{ name: '強化石', count: 50 }, { name: '寶石合成符', count: 5 }, { name: '金幣', count: 50000 }] },
+    { id: '98', price: 98, baseDiamond: 980, name: '98元檔', giftItems: [{ name: '強化石', count: 200 }, { name: '寶石鑲嵌符', count: 10 }, { name: '秘銀礦', count: 20 }, { name: '金幣', count: 200000 }] },
+    { id: '198', price: 198, baseDiamond: 1980, name: '198元檔', giftItems: [{ name: '強化石', count: 500 }, { name: '寶石全套符', count: 20 }, { name: '龍魂礦', count: 20 }, { name: '史詩裝備藍圖', count: 1 }, { name: '金幣', count: 500000 }] },
+    { id: '328', price: 328, baseDiamond: 3280, name: '328元檔', giftItems: [{ name: '強化石', count: 1000 }, { name: '寶石全套符', count: 50 }, { name: '混沌礦', count: 20 }, { name: '傳說裝備藍圖', count: 1 }, { name: '4級隨機寶石', count: 2 }, { name: '金幣', count: 1000000 }] },
+    { id: '648', price: 648, baseDiamond: 6480, name: '648元檔', giftItems: [{ name: '強化石', count: 2500 }, { name: '寶石全套符', count: 100 }, { name: '開天礦', count: 20 }, { name: '神話裝備藍圖', count: 1 }, { name: '5級隨機寶石', count: 2 }, { name: '金幣', count: 3000000 }] },
+  ];
+
+  const SHOP_CATEGORY = {
+    HOT: 'hot',
+    MATERIAL: 'material',
+    BLUEPRINT: 'blueprint',
+    GEM: 'gem',
+    ATTRIBUTE: 'attribute',
+  };
+
+  const SHOP_CATEGORY_NAME = {
+    [SHOP_CATEGORY.HOT]: '熱賣推薦',
+    [SHOP_CATEGORY.MATERIAL]: '材料專區',
+    [SHOP_CATEGORY.BLUEPRINT]: '藍圖專區',
+    [SHOP_CATEGORY.GEM]: '寶石專區',
+    [SHOP_CATEGORY.ATTRIBUTE]: '屬性專區',
+  };
+
+  const SHOP_GOODS_CONFIG = [
+    // 熱賣推薦
+    { id: 'stone_1', name: '強化石', category: SHOP_CATEGORY.HOT, price: 10, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, count: 1, limitType: 'none', desc: '裝備強化專用材料' },
+    { id: 'gold_1', name: '金幣', category: SHOP_CATEGORY.HOT, price: 1, currency: 'diamond', itemType: 'currency', count: 1000, limitType: 'none', desc: '遊戲通用貨幣' },
+    { id: 'compose_stone', name: '寶石合成符', category: SHOP_CATEGORY.HOT, price: 20, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, count: 1, limitType: 'none', desc: '寶石合成專用道具' },
+    // 材料專區
+    { id: 'embed_stone', name: '寶石鑲嵌符', category: SHOP_CATEGORY.MATERIAL, price: 30, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, count: 1, limitType: 'none', desc: '寶石鑲嵌專用道具' },
+    { id: 'remove_stone', name: '寶石摘除符', category: SHOP_CATEGORY.MATERIAL, price: 50, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, count: 1, limitType: 'none', desc: '寶石摘除專用道具' },
+    { id: 'mibao', name: '秘銀礦', category: SHOP_CATEGORY.MATERIAL, price: 50, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, count: 1, limitType: 'none', desc: '史詩裝備打造材料' },
+    { id: 'longhun', name: '龍魂礦', category: SHOP_CATEGORY.MATERIAL, price: 200, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, count: 1, limitType: 'none', desc: '傳說裝備打造材料' },
+    { id: 'hundun', name: '混沌礦', category: SHOP_CATEGORY.MATERIAL, price: 800, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, count: 1, limitType: 'none', desc: '神話裝備打造材料' },
+    { id: 'kaitian', name: '開天礦', category: SHOP_CATEGORY.MATERIAL, price: 3000, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, count: 1, limitType: 'none', desc: '至尊裝備打造材料' },
+    { id: 'wash_stone', name: '洗練石', category: SHOP_CATEGORY.MATERIAL, price: 100, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, count: 1, limitType: 'none', desc: '裝備屬性洗練專用材料' },
+    // 藍圖專區
+    { id: 'blueprint_epic', name: '史詩裝備藍圖', category: SHOP_CATEGORY.BLUEPRINT, price: 1000, currency: 'diamond', itemType: ITEM_TYPE.BLUEPRINT, blueprintId: 'blueprint_epic', count: 1, limitType: 'none', desc: '用於打造史詩品質裝備' },
+    { id: 'blueprint_legendary', name: '傳說裝備藍圖', category: SHOP_CATEGORY.BLUEPRINT, price: 5000, currency: 'diamond', itemType: ITEM_TYPE.BLUEPRINT, blueprintId: 'blueprint_legendary', count: 1, limitType: 'none', desc: '用於打造傳說品質裝備' },
+    { id: 'blueprint_mythic', name: '神話裝備藍圖', category: SHOP_CATEGORY.BLUEPRINT, price: 20000, currency: 'diamond', itemType: ITEM_TYPE.BLUEPRINT, blueprintId: 'blueprint_mythic', count: 1, limitType: 'none', desc: '用於打造神話品質裝備' },
+    { id: 'blueprint_supreme', name: '至尊裝備藍圖', category: SHOP_CATEGORY.BLUEPRINT, price: 100000, currency: 'diamond', itemType: ITEM_TYPE.BLUEPRINT, blueprintId: 'blueprint_supreme', count: 1, limitType: 'none', desc: '用於打造至尊品質裝備' },
+    // 寶石專區
+    { id: 'gem_lv1', name: '1級隨機寶石', category: SHOP_CATEGORY.GEM, price: 50, currency: 'diamond', itemType: ITEM_TYPE.GEM, level: 1, count: 1, limitType: 'none', desc: '打開後隨機獲得1顆1級寶石' },
+    { id: 'gem_lv2', name: '2級隨機寶石', category: SHOP_CATEGORY.GEM, price: 150, currency: 'diamond', itemType: ITEM_TYPE.GEM, level: 2, count: 1, limitType: 'none', desc: '打開後隨機獲得1顆2級寶石' },
+    { id: 'gem_lv3', name: '3級隨機寶石', category: SHOP_CATEGORY.GEM, price: 450, currency: 'diamond', itemType: ITEM_TYPE.GEM, level: 3, count: 1, limitType: 'none', desc: '打開後隨機獲得1顆3級寶石' },
+    // 屬性專區
+    { id: 'attr_stone_attack', name: '攻擊屬性石', category: SHOP_CATEGORY.ATTRIBUTE, price: 200, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, attrType: ATTR_TYPE.PHYSICAL_ATTACK, count: 1, limitType: 'none', desc: '永久提升角色少量攻擊屬性' },
+    { id: 'attr_stone_defense', name: '防禦屬性石', category: SHOP_CATEGORY.ATTRIBUTE, price: 200, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, attrType: ATTR_TYPE.PHYSICAL_DEFENSE, count: 1, limitType: 'none', desc: '永久提升角色少量防禦屬性' },
+    { id: 'attr_stone_crit', name: '暴擊屬性石', category: SHOP_CATEGORY.ATTRIBUTE, price: 500, currency: 'diamond', itemType: ITEM_TYPE.MATERIAL, attrType: ATTR_TYPE.CRIT_RATE, count: 1, limitType: 'none', desc: '永久提升角色少量暴擊率' },
+  ];
+
+  const COMPOSE_TYPE_CONFIG = [
+    { id: 'gem', name: '寶石合成', itemType: ITEM_TYPE.GEM, maxLevel: 10, composeCount: 3, baseName: '寶石', getLevel: (item) => item.level, generateItem: (type, level) => Game.gem.generateGem(type, level) },
+    { id: 'wash_stone', name: '洗練石合成', itemType: ITEM_TYPE.MATERIAL, maxLevel: 10, composeCount: 3, baseName: '洗練石', getLevel: (item) => item.level || 1, generateItem: (_, level) => ({ id: GameUtils.generateUniqueId(), name: `${level}級洗練石`, type: ITEM_TYPE.MATERIAL, level: level, desc: `用於${level}級以下裝備洗練`, count: 1 }) },
+    { id: 'attr_stone', name: '屬性石合成', itemType: ITEM_TYPE.MATERIAL, maxLevel: 10, composeCount: 3, baseName: '屬性石', getLevel: (item) => item.level || 1, generateItem: (type, level) => ({ id: GameUtils.generateUniqueId(), name: `${level}級攻擊屬性石`, type: ITEM_TYPE.MATERIAL, level: level, attrType: ATTR_TYPE.PHYSICAL_ATTACK, desc: `永久提升${level * 2}點攻擊`, count: 1 }) },
+    { id: 'inscription', name: '銘文合成', itemType: 'inscription', maxLevel: 10, composeCount: 3, baseName: '銘文', getLevel: (item) => item.level || 1, generateItem: (type, level) => ({ id: GameUtils.generateUniqueId(), name: `${level}級${type}銘文`, type: 'inscription', level: level, desc: `鑲嵌後提升對應屬性`, count: 1 }) },
+  ];
+
+  Object.assign(Game, {
+    // 充值系統模塊
+    recharge: {
+      getRechargeCount: (rechargeId) => Game.player.rechargeHistory[rechargeId] || 0,
+      isFirstCharge: (rechargeId) => Game.recharge.getRechargeCount(rechargeId) === 0,
+      doRecharge: (rechargeId) => {
+        const rechargeConfig = RECHARGE_CONFIG.find(item => item.id === rechargeId);
+        if (!rechargeConfig) {
+          Game.log.addLog('充值失敗：檔位不存在', 'danger');
+          return false;
+        }
+        // 計算元寶數量
+        const isFirst = Game.recharge.isFirstCharge(rechargeId);
+        const diamondCount = isFirst ? rechargeConfig.baseDiamond * 2 : rechargeConfig.baseDiamond;
+        // 發放元寶
+        Game.player.diamond += diamondCount;
+        // 發放贈送道具
+        rechargeConfig.giftItems.forEach(gift => {
+          if (gift.name === '金幣') {
+            Game.player.gold += gift.count;
+          } else if (gift.name === '寶石全套符') {
+            ['寶石合成符', '寶石鑲嵌符', '寶石摘除符'].forEach(name => {
+              const existing = Game.player.backpack.find(i => i.type === ITEM_TYPE.MATERIAL && i.name === name);
+              if (existing) existing.count += gift.count;
+              else Game.backpack.addItem({ id: GameUtils.generateUniqueId(), name: name, type: ITEM_TYPE.MATERIAL, count: gift.count, desc: '寶石操作專用道具' });
+            });
+          } else if (gift.name.includes('級隨機寶石')) {
+            const level = parseInt(gift.name.match(/\d+/)[0]);
+            for (let i = 0; i < gift.count; i++) {
+              const gemTypes = Object.values(GEM_TYPE);
+              const randomType = gemTypes[GameUtils.getRandomInt(0, gemTypes.length - 1)];
+              Game.backpack.addItem(Game.gem.generateGem(randomType, level));
+            }
+          } else {
+            const existing = Game.player.backpack.find(i => i.name === gift.name);
+            if (existing) existing.count = (existing.count || 1) + gift.count;
+            else Game.backpack.addItem({ id: GameUtils.generateUniqueId(), name: gift.name, type: ITEM_TYPE.MATERIAL, count: gift.count, desc: '遊戲道具' });
+          }
+        });
+        // 更新充值記錄
+        Game.player.rechargeHistory[rechargeId] = Game.recharge.getRechargeCount(rechargeId) + 1;
+        // 日誌與界面刷新
+        const firstText = isFirst ? '首充雙倍！' : '';
+        Game.log.addLog(`充值成功！${firstText}獲得元寶 x${diamondCount}，已發放至賬號`, 'success');
+        Game.render.renderPlayerInfo();
+        Game.render.renderRechargeView();
+        return true;
+      },
+    },
+
+    // 商城系統模塊
+    shop: {
+      currentCategory: SHOP_CATEGORY.HOT,
+      initShopData: () => {
+        if (!Game.player.shopLimitData) Game.player.shopLimitData = {};
+      },
+      getGoodsList: () => SHOP_GOODS_CONFIG.filter(item => item.category === Game.shop.currentCategory),
+      buyGoods: (goodsId, buyCount = 1) => {
+        Game.shop.initShopData();
+        const goods = SHOP_GOODS_CONFIG.find(item => item.id === goodsId);
+        if (!goods) {
+          Game.log.addLog('購買失敗：商品不存在', 'danger');
+          return false;
+        }
+        // 檢查貨幣
+        const totalPrice = goods.price * buyCount;
+        if (goods.currency === 'diamond' && Game.player.diamond < totalPrice) {
+          Game.log.addLog('購買失敗：元寶不足', 'danger');
+          return false;
+        }
+        if (goods.currency === 'gold' && Game.player.gold < totalPrice) {
+          Game.log.addLog('購買失敗：金幣不足', 'danger');
+          return false;
+        }
+        // 檢查限購
+        if (goods.limitType !== 'none') {
+          const limitKey = `${goods.limitType}_${goods.id}`;
+          const currentBuyCount = Game.player.shopLimitData[limitKey] || 0;
+          if (currentBuyCount + buyCount > goods.limitCount) {
+            Game.log.addLog('購買失敗：超出商品限購數量', 'danger');
+            return false;
+          }
+          Game.player.shopLimitData[limitKey] = currentBuyCount + buyCount;
+        }
+        // 扣除貨幣
+        if (goods.currency === 'diamond') Game.player.diamond -= totalPrice;
+        if (goods.currency === 'gold') Game.player.gold -= totalPrice;
+        // 發放道具
+        for (let i = 0; i < buyCount; i++) {
+          if (goods.itemType === 'currency') {
+            if (goods.name === '金幣') Game.player.gold += goods.count;
+          } else if (goods.itemType === ITEM_TYPE.GEM && goods.name.includes('隨機寶石')) {
+            const gemTypes = Object.values(GEM_TYPE);
+            const randomType = gemTypes[GameUtils.getRandomInt(0, gemTypes.length - 1)];
+            Game.backpack.addItem(Game.gem.generateGem(randomType, goods.level));
+          } else {
+            const itemData = { ...goods, id: GameUtils.generateUniqueId(), count: goods.count };
+            const existing = Game.player.backpack.find(item => item.type === itemData.type && item.name === itemData.name);
+            if (existing) existing.count = (existing.count || 1) + itemData.count;
+            else Game.backpack.addItem(itemData);
+          }
+        }
+        // 日誌與界面刷新
+        Game.log.addLog(`購買成功！獲得 ${goods.name} x${buyCount * goods.count}`, 'success');
+        Game.render.renderPlayerInfo();
+        Game.render.renderShopView();
+        if (Game.state.currentView === 'equipment') Game.render.renderEquipmentView();
+        if (Game.state.currentView === 'forge') Game.render.renderForgeView();
+        return true;
+      },
+    },
+
+    // 合成系統擴展模塊
+    compose: {
+      currentType: COMPOSE_TYPE_CONFIG[0].id,
+      getCurrentTypeConfig: () => COMPOSE_TYPE_CONFIG.find(item => item.id === Game.compose.currentType),
+      getComposeableItemList: () => {
+        const config = Game.compose.getCurrentTypeConfig();
+        return Game.player.backpack.filter(item => item.type === config.itemType);
+      },
+      doCompose: (itemId) => {
+        const config = Game.compose.getCurrentTypeConfig();
+        const sourceItem = Game.backpack.getItemById(itemId);
+        if (!sourceItem || sourceItem.type !== config.itemType) {
+          Game.log.addLog('合成失敗：道具不存在', 'danger');
+          return false;
+        }
+        const itemLevel = config.getLevel(sourceItem);
+        if (itemLevel >= config.maxLevel) {
+          Game.log.addLog('合成失敗：已達到最高等級', 'danger');
+          return false;
+        }
+        // 檢查數量
+        const sameItems = Game.compose.getComposeableItemList().filter(item => config.getLevel(item) === itemLevel && item.name === sourceItem.name);
+        if (sameItems.length < config.composeCount) {
+          Game.log.addLog(`合成失敗：需要 ${config.composeCount} 個同類同級道具`, 'danger');
+          return false;
+        }
+        // 扣除消耗
+        for (let i = 0; i < config.composeCount; i++) {
+          Game.backpack.removeItem(sameItems[i].id);
+        }
+        // 生成新道具
+        const newItem = config.generateItem(sourceItem.gemType || sourceItem.attrType || 'normal', itemLevel + 1);
+        Game.backpack.addItem(newItem);
+        Game.log.addLog(`合成成功！獲得 ${newItem.name}`, 'success');
+        Game.render.renderForgeView();
+        return true;
+      },
+    },
+
+    // 擴展渲染模塊
+    render: Object.assign(Game.render, {
+      renderRechargeView: () => {
+        const rechargeView = document.getElementById('rechargeView');
+        rechargeView.innerHTML = `
+          <div class="card">
+            <h2 class="card-title">充值中心</h2>
+            <div style="text-align: center; margin-bottom: 1.5rem; color: var(--warning-color);">
+              所有檔位首次充值可獲得雙倍元寶！永久有效
+            </div>
+            <div class="recharge-grid">
+              ${RECHARGE_CONFIG.map(config => {
+                const isFirst = Game.recharge.isFirstCharge(config.id);
+                return `
+                  <div class="recharge-card ${isFirst ? 'first-charge' : ''}" id="recharge-btn-${config.id}">
+                    <h3 style="color: ${isFirst ? 'var(--warning-color)' : 'var(--primary-color)'}; margin-bottom: 0.5rem;">${config.name}</h3>
+                    <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem;">${config.baseDiamond} 元寶</div>
+                    ${isFirst ? '<div style="color: var(--warning-color); margin-bottom: 0.5rem;">首充雙倍 額外贈送' + config.baseDiamond + '元寶</div>' : ''}
+                    <div style="font-size: 0.8rem; color: #AAAAAA; margin-bottom: 1rem;">
+                      贈送：${config.giftItems.map(gift => gift.name + 'x' + gift.count).join('、')}
+                    </div>
+                    <button class="btn btn-primary" style="width: 100%;">￥${config.price} 立即充值</button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+        // 充值按鈕事件
+        RECHARGE_CONFIG.forEach(config => {
+          document.getElementById(`recharge-btn-${config.id}`).addEventListener('click', () => Game.recharge.doRecharge(config.id));
+        });
+      },
+      renderShopView: () => {
+        const shopView = document.getElementById('shopView');
+        const goodsList = Game.shop.getGoodsList();
+        shopView.innerHTML = `
+          <div class="card">
+            <div class="shop-category-nav">
+              ${Object.values(SHOP_CATEGORY).map(category => `
+                <button class="shop-category-btn ${Game.shop.currentCategory === category ? 'active' : ''}" data-category="${category}">
+                  ${SHOP_CATEGORY_NAME[category]}
+                </button>
+              `).join('')}
+            </div>
+            <div class="goods-grid">
+              ${goodsList.map(goods => {
+                const limitText = goods.limitType === 'daily' ? '每日限購' : goods.limitType === 'account' ? '永久限購' : '';
+                const currencyIcon = goods.currency === 'diamond' ? '元寶' : '金幣';
+                return `
+                  <div class="goods-card">
+                    <div class="goods-name">${goods.name}</div>
+                    <div class="goods-desc">${goods.desc}</div>
+                    <div class="goods-price">
+                      <span>${goods.price}</span>
+                      <span style="color: ${goods.currency === 'diamond' ? 'var(--warning-color)' : 'var(--success-color)'}">${currencyIcon}</span>
+                    </div>
+                    ${limitText ? `<div class="goods-limit">${limitText} ${goods.limitCount}個</div>` : ''}
+                    <button class="btn btn-primary" style="width: 100%; font-size: 0.8rem;" id="buy-btn-${goods.id}">立即購買</button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+        // 分類切換事件
+        document.querySelectorAll('.shop-category-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            Game.shop.currentCategory = btn.dataset.category;
+            Game.render.renderShopView();
+          });
+        });
+        // 購買按鈕事件
+        goodsList.forEach(goods => {
+          document.getElementById(`buy-btn-${goods.id}`).addEventListener('click', () => Game.shop.buyGoods(goods.id));
+        });
+      },
+    }),
+  });
+
+  // 擴展鍛造界面合成標籤頁
+  const originalRenderForgeView = Game.render.renderForgeView;
+  Game.render.renderForgeView = () => {
+    originalRenderForgeView();
+    if (Game.render.currentForgeTab === 'compose') {
+      const composeTab = document.getElementById('composeTab');
+      const itemList = Game.compose.getComposeableItemList();
+      const config = Game.compose.getCurrentTypeConfig();
+      composeTab.innerHTML = `
+        <h2 class="card-title">道具合成</h2>
+        <div class="compose-type-nav">
+          ${COMPOSE_TYPE_CONFIG.map(type => `
+            <button class="btn compose-type-btn ${Game.compose.currentType === type.id ? 'active' : ''}" data-type="${type.id}">
+              ${type.name}
+            </button>
+          `).join('')}
+        </div>
+        <div style="margin-bottom: 1rem; color: #AAAAAA; font-size: 0.9rem;">
+          合成規則：${config.composeCount} 個同級${config.baseName}可合成 1 個高1級${config.baseName}
+        </div>
+        <div class="gem-grid">
+          ${itemList.length > 0 ? itemList.map(item => {
+            const level = config.getLevel(item);
+            const canCompose = itemList.filter(i => config.getLevel(i) === level && i.name === item.name).length >= config.composeCount;
+            return `
+              <div class="gem-card quality-${item.quality || Math.min(6, Math.max(1, Math.ceil(level / 2)))}" id="compose-item-${item.id}">
+                <span style="font-size: 0.8rem; font-weight: bold;">${item.name}</span>
+                <span style="font-size: 0.7rem; color: #AAAAAA; text-align: center;">擁有數量：${item.count || 1}</span>
+                <button class="btn btn-sm" style="width: 100%; margin-top: 0.5rem; font-size: 0.7rem;" ${!canCompose || level >= config.maxLevel ? 'disabled' : ''}>
+                  ${level >= config.maxLevel ? '已滿級' : canCompose ? '立即合成' : '數量不足'}
+                </button>
+              </div>
+            `;
+          }).join('') : '<div style="grid-column: 1/-1; text-align: center; color: #AAAAAA; padding: 2rem;">背包中沒有可合成的道具</div>'}
+        </div>
+      `;
+      // 合成類型切換事件
+      document.querySelectorAll('.compose-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          Game.compose.currentType = btn.dataset.type;
+          Game.render.renderForgeView();
+        });
+      });
+      // 合成按鈕事件
+      itemList.forEach(item => {
+        const btn = document.querySelector(`#compose-item-${item.id} button`);
+        if (btn) btn.addEventListener('click', () => Game.compose.doCompose(item.id));
+      });
+    }
+  };
+
+  // 擴展視圖切換邏輯
+  const originalShopSwitchView = Game.render.switchView;
+  Game.render.switchView = (viewName) => {
+    originalShopSwitchView(viewName);
+    if (viewName === 'recharge') Game.render.renderRechargeView();
+    if (viewName === 'shop') Game.render.renderShopView();
+  };
+
+  // 擴展存檔加載邏輯，兼容充值與商城數據
+  const originalShopLoadGame = Game.save.loadGame;
+  Game.save.loadGame = () => {
+    const result = originalShopLoadGame();
+    // 初始化充值記錄
+    if (!Game.player.rechargeHistory || Array.isArray(Game.player.rechargeHistory)) {
+      Game.player.rechargeHistory = {};
+    }
+    // 初始化商城限購數據
+    Game.shop.initShopData();
+    return result;
+  };
+
+  // 測試方法：添加測試元寶
+  window.addTestDiamond = (count = 10000) => {
+    Game.player.diamond += count;
+    Game.log.addLog(`已添加 ${GameUtils.formatNumber(count)} 元寶`, 'success');
+    Game.render.renderPlayerInfo();
+  };
+</script>
+</body>
+</html>
