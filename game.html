@@ -8586,5 +8586,930 @@ window.unlockAllTitleFashion = () => {
   Game.render.renderSkillView();
 };
 </script>
+<style>
+/* 第十二部分：新增系統專用樣式 - 完全兼容原有主題變量 */
+.pet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.pet-card {
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  background: rgba(0,0,0,0.3);
+  text-align: center;
+}
+.pet-card.activated {
+  border-color: var(--success-color);
+}
+.pet-card.battling {
+  border-color: var(--warning-color);
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.4);
+}
+.pet-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  margin: 0 auto 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+.tower-layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.tower-layer-card {
+  display: grid;
+  grid-template-columns: 80px 1fr 100px 100px;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.3);
+}
+.tower-layer-card.passed {
+  border-color: var(--success-color);
+  opacity: 0.8;
+}
+.tower-layer-card.current {
+  border-color: var(--warning-color);
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+}
+.god-weapon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+.god-weapon-card {
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(142, 68, 173, 0.2), rgba(0,0,0,0.3));
+}
+.god-weapon-card.unlocked {
+  border-color: var(--warning-color);
+}
+.god-weapon-name {
+  font-weight: bold;
+  font-size: 1.1rem;
+  text-align: center;
+  margin-bottom: 0.5rem;
+  color: var(--warning-color);
+}
+.sector-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 1.5rem;
+}
+.sector-task-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.2);
+  margin-bottom: 0.8rem;
+}
+.sector-cultivate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+</style>
+
+<!-- 第十二部分：新增界面容器 -->
+<div id="petView" class="view-container"></div>
+<div id="towerView" class="view-container"></div>
+<div id="godWeaponView" class="view-container"></div>
+<div id="sectorView" class="view-container"></div>
+
+<script>
+// ==================== 第十二部分：寵物、爬塔、神器、宗門系統完整實現 ====================
+// 完全兼容原有核心框架，無侵入式修改，僅新增擴展功能
+const PET_CONFIG = [
+  { id: 'fire_wolf', name: '烈焰魔狼', quality: 3, baseAttr: { [ATTR_TYPE.PHYSICAL_ATTACK]: 50, [ATTR_TYPE.CRIT_RATE]: 0.02 }, skill: { name: '烈焰撕咬', damageMulti: 1.5, desc: '對敵人造成150%物理傷害' }, desc: '擅長物理攻擊的火系魔狼，暴擊能力出眾' },
+  { id: 'water_fox', name: '靈水仙狐', quality: 3, baseAttr: { [ATTR_TYPE.MAGIC_ATTACK]: 50, [ATTR_TYPE.MAX_HP]: 500 }, skill: { name: '靈水治療', healMulti: 0.2, desc: '每回合恢復主角20%最大生命值' }, desc: '擁有治療能力的仙狐，提升主角生存能力' },
+  { id: 'thunder_eagle', name: '雷電神鷹', quality: 4, baseAttr: { [ATTR_TYPE.PHYSICAL_ATTACK]: 100, [ATTR_TYPE.MAGIC_ATTACK]: 100, [ATTR_TYPE.HIT]: 0.05 }, skill: { name: '雷電衝擊', damageMulti: 2.0, desc: '對敵人造成200%全屬性傷害，降低敵人10%防禦' }, desc: '高速雷系神鷹，雙攻屬性強大，可削弱敵人防禦' },
+  { id: 'earth_bear', name: '大地巨熊', quality: 4, baseAttr: { [ATTR_TYPE.PHYSICAL_DEFENSE]: 100, [ATTR_TYPE.MAGIC_DEFENSE]: 100, [ATTR_TYPE.MAX_HP]: 2000 }, skill: { name: '大地護盾', buffMulti: 0.3, desc: '提升主角30%防禦力，持續2回合' }, desc: '防禦力極強的巨熊，大幅提升主角生存能力' },
+  { id: 'dragon_god', name: '神龍至尊', quality: 5, baseAttr: { [ATTR_TYPE.ALL_ATTR_MULTIPLIER]: 0.1 }, skill: { name: '神龍吐息', damageMulti: 3.0, desc: '對敵人造成300%全屬性傷害，無視30%防禦' }, desc: '頂級神獸，全屬性增幅，擁有最強的攻擊能力' },
+];
+
+const TOWER_CONFIG = {
+  baseMonsterLevel: 1,
+  levelPerLayer: 2,
+  baseRewardExp: 1000,
+  baseRewardGold: 5000,
+  bossLayerInterval: 5,
+  dailyRewardPerLayer: { diamond: 10, petExp: 100, godWeaponFragment: 1 },
+};
+
+const GOD_WEAPON_CONFIG = [
+  { id: 'sword', name: '誅仙劍', type: 'attack', baseAttr: { [ATTR_TYPE.PHYSICAL_ATTACK]: 100, [ATTR_TYPE.MAGIC_ATTACK]: 100 }, maxLevel: 20, unlockDesc: '通關試煉塔第10層解鎖', effect: '攻擊時有概率造成雙倍傷害' },
+  { id: 'shield', name: '軒轅盾', type: 'defense', baseAttr: { [ATTR_TYPE.PHYSICAL_DEFENSE]: 100, [ATTR_TYPE.MAGIC_DEFENSE]: 100 }, maxLevel: 20, unlockDesc: '通關試煉塔第20層解鎖', effect: '受到傷害時有概率減免50%傷害' },
+  { id: 'pagoda', name: '玲珑塔', type: 'hp', baseAttr: { [ATTR_TYPE.MAX_HP]: 2000 }, maxLevel: 20, unlockDesc: '通關試煉塔第30層解鎖', effect: '每回合恢復10%最大生命值' },
+  { id: 'spear', name: '破魔槍', type: 'crit', baseAttr: { [ATTR_TYPE.CRIT_RATE]: 0.05, [ATTR_TYPE.CRIT_DAMAGE]: 0.2 }, maxLevel: 20, unlockDesc: '通關試煉塔第50層解鎖', effect: '暴擊後額外附加一次真實傷害' },
+  { id: 'mirror', name: '乾坤鏡', type: 'reflect', baseAttr: { [ATTR_TYPE.CRIT_DEFENSE]: 0.2, [ATTR_TYPE.DODGE]: 0.05 }, maxLevel: 20, unlockDesc: '通關試煉塔第80層解鎖', effect: '有概率反彈受到的傷害' },
+  { id: 'seal', name: '封神印', type: 'all', baseAttr: { [ATTR_TYPE.ALL_ATTR_MULTIPLIER]: 0.05 }, maxLevel: 10, unlockDesc: '通關試煉塔第100層解鎖', effect: '全技能傷害提升50%' },
+];
+
+const SECTOR_CONFIG = {
+  maxLevel: 10,
+  baseLevelUpExp: 10000,
+  taskRefreshCount: 5,
+  dailyTaskCount: 5,
+};
+
+const SECTOR_TASK_CONFIG = [
+  { id: 'battle', name: '通關關卡', target: 5, reward: { sectorExp: 100, contribution: 50 }, desc: '通關任意關卡5次' },
+  { id: 'pvp', name: 'PVP挑戰', target: 3, reward: { sectorExp: 150, contribution: 80 }, desc: '完成3次PVP挑戰' },
+  { id: 'enhance', name: '裝備強化', target: 3, reward: { sectorExp: 100, contribution: 50 }, desc: '完成3次裝備強化' },
+  { id: 'dungeon', name: '副本挑戰', target: 2, reward: { sectorExp: 200, contribution: 100 }, desc: '完成2次日常副本' },
+  { id: 'boss', name: '世界BOSS', target: 1, reward: { sectorExp: 300, contribution: 200 }, desc: '擊殺1次世界BOSS' },
+];
+
+const SECTOR_CULTIVATE_CONFIG = [
+  { id: 'attack', name: '攻擊功法', attr: { [ATTR_TYPE.PHYSICAL_ATTACK]: 20, [ATTR_TYPE.MAGIC_ATTACK]: 20 }, maxLevel: 50, costPerLevel: 100, desc: '永久提升攻擊力' },
+  { id: 'defense', name: '防禦功法', attr: { [ATTR_TYPE.PHYSICAL_DEFENSE]: 20, [ATTR_TYPE.MAGIC_DEFENSE]: 20 }, maxLevel: 50, costPerLevel: 100, desc: '永久提升防禦力' },
+  { id: 'hp', name: '長生功法', attr: { [ATTR_TYPE.MAX_HP]: 500 }, maxLevel: 50, costPerLevel: 100, desc: '永久提升生命值' },
+  { id: 'crit', name: '暴擊功法', attr: { [ATTR_TYPE.CRIT_RATE]: 0.01, [ATTR_TYPE.CRIT_DAMAGE]: 0.02 }, maxLevel: 30, costPerLevel: 200, desc: '永久提升暴擊屬性' },
+];
+
+Object.assign(Game, {
+  // 寵物夥伴系統模塊
+  pet: {
+    initData: () => {
+      if (!Game.player.petData) {
+        Game.player.petData = {
+          activatedPets: [],
+          battlingPet: null,
+          assistPets: [],
+          pets: {},
+        };
+        // 初始贈送新手寵物
+        Game.pet.unlockPet('fire_wolf');
+      }
+    },
+    unlockPet: (petId) => {
+      const petConfig = PET_CONFIG.find(p => p.id === petId);
+      if (!petConfig || Game.player.petData.activatedPets.includes(petId)) return false;
+      Game.player.petData.activatedPets.push(petId);
+      Game.player.petData.pets[petId] = {
+        id: petId,
+        level: 1,
+        exp: 0,
+        star: 1,
+      };
+      Game.log.addLog(`解鎖新寵物：${petConfig.name}`, 'success');
+      Game.attribute.calculateFinalAttr();
+      return true;
+    },
+    setBattlingPet: (petId) => {
+      if (!Game.player.petData.activatedPets.includes(petId)) {
+        Game.log.addLog('出戰失敗：寵物未解鎖', 'danger');
+        return false;
+      }
+      Game.player.petData.battlingPet = petId;
+      Game.log.addLog(`已設置 ${PET_CONFIG.find(p => p.id === petId).name} 為出戰寵物`, 'success');
+      Game.render.renderPetView();
+      return true;
+    },
+    getPetTotalAttr: () => {
+      const attr = {};
+      // 出戰寵物屬性
+      const battlingPetId = Game.player.petData.battlingPet;
+      if (battlingPetId) {
+        const petConfig = PET_CONFIG.find(p => p.id === battlingPetId);
+        const petData = Game.player.petData.pets[battlingPetId];
+        const levelMulti = 1 + (petData.level - 1) * 0.1;
+        const starMulti = 1 + (petData.star - 1) * 0.2;
+        for (const key in petConfig.baseAttr) {
+          attr[key] = (attr[key] || 0) + petConfig.baseAttr[key] * levelMulti * starMulti;
+        }
+      }
+      // 助戰寵物屬性（暫定4個助戰位，提供30%屬性）
+      Game.player.petData.assistPets.forEach(petId => {
+        const petConfig = PET_CONFIG.find(p => p.id === petId);
+        const petData = Game.player.petData.pets[petId];
+        const levelMulti = 1 + (petData.level - 1) * 0.1;
+        const starMulti = 1 + (petData.star - 1) * 0.2;
+        for (const key in petConfig.baseAttr) {
+          attr[key] = (attr[key] || 0) + petConfig.baseAttr[key] * levelMulti * starMulti * 0.3;
+        }
+      });
+      return attr;
+    },
+    doPetAttack: () => {
+      const battle = Game.battle.currentBattle;
+      const petId = Game.player.petData.battlingPet;
+      if (!battle || battle.isEnd || !petId) return;
+      const petConfig = PET_CONFIG.find(p => p.id === petId);
+      const petData = Game.player.petData.pets[petId];
+      const damageMulti = petConfig.skill.damageMulti * (1 + (petData.level - 1) * 0.05);
+      const damage = Game.battle.calculatePlayerDamage(damageMulti);
+      battle.monster.currentHp -= damage;
+      Game.battle.addBattleLog(`你的寵物【${petConfig.name}】釋放了【${petConfig.skill.name}】，對${battle.monster.name}造成了${GameUtils.formatNumber(damage)}點傷害！`, 'player');
+      Game.render.renderBattleView();
+      Game.battle.checkBattleEnd();
+    },
+    levelUpPet: (petId) => {
+      const petData = Game.player.petData.pets[petId];
+      if (!petData) return false;
+      const needExp = petData.level * 100;
+      const petExpItem = Game.player.backpack.find(i => i.name === '寵物經驗丹');
+      if (!petExpItem || (petExpItem.count || 1) < needExp) {
+        Game.log.addLog(`升級失敗：需要寵物經驗丹 x${needExp}`, 'danger');
+        return false;
+      }
+      petExpItem.count -= needExp;
+      if (petExpItem.count <= 0) Game.backpack.removeItem(petExpItem.id);
+      petData.level += 1;
+      Game.attribute.calculateFinalAttr();
+      Game.log.addLog(`${PET_CONFIG.find(p => p.id === petId).name} 升級成功！當前等級 Lv.${petData.level}`, 'success');
+      Game.render.renderPetView();
+      return true;
+    },
+  },
+
+  // 無盡試煉塔系統模塊
+  tower: {
+    initData: () => {
+      if (!Game.player.towerData) {
+        Game.player.towerData = {
+          maxPassedLayer: 0,
+          currentLayer: 1,
+          dailyRewardClaimed: false,
+          lastDailyReset: Date.now(),
+        };
+      }
+      Game.tower.checkDailyReset();
+    },
+    checkDailyReset: () => {
+      const now = Date.now();
+      const oneDay = 86400000;
+      if (now - Game.player.towerData.lastDailyReset >= oneDay) {
+        Game.player.towerData.dailyRewardClaimed = false;
+        Game.player.towerData.lastDailyReset = now;
+        Game.log.addLog('試煉塔每日獎勵已重置', 'success');
+      }
+    },
+    getLayerMonster: (layer) => {
+      const monsterLevel = TOWER_CONFIG.baseMonsterLevel + (layer - 1) * TOWER_CONFIG.levelPerLayer;
+      const quality = layer % TOWER_CONFIG.bossLayerInterval === 0 ? MONSTER_QUALITY.BOSS : MONSTER_QUALITY.ELITE;
+      const monster = Game.monster.generateMonster(monsterLevel, quality);
+      monster.name = `試煉塔第${layer}層守護者`;
+      monster.attrs[ATTR_TYPE.MAX_HP] *= 1 + layer * 0.05;
+      monster.attrs[ATTR_TYPE.PHYSICAL_ATTACK] *= 1 + layer * 0.03;
+      monster.attrs[ATTR_TYPE.MAGIC_ATTACK] *= 1 + layer * 0.03;
+      monster.currentHp = monster.attrs[ATTR_TYPE.MAX_HP];
+      return monster;
+    },
+    startLayerBattle: (layer) => {
+      if (Game.state.isInBattle) {
+        Game.log.addLog('當前已有戰鬥進行中', 'warning');
+        return false;
+      }
+      const monster = Game.tower.getLayerMonster(layer);
+      Game.battle.currentBattle = {
+        isTower: true,
+        layer: layer,
+        monster: monster,
+        player: {
+          currentHp: Game.player.finalAttr[ATTR_TYPE.MAX_HP],
+          currentMp: Game.player.finalAttr[ATTR_TYPE.MAX_MP],
+          maxHp: Game.player.finalAttr[ATTR_TYPE.MAX_HP],
+          maxMp: Game.player.finalAttr[ATTR_TYPE.MAX_MP],
+        },
+        round: 0,
+        isEnd: false,
+        isWin: false,
+      };
+      Game.battle.battleLog = [];
+      Game.state.isInBattle = true;
+      Game.battle.addBattleLog(`試煉塔第${layer}層挑戰開始！對手：${monster.name} Lv.${monster.level}`, 'warning');
+      Game.render.switchView('battle');
+      Game.render.renderBattleView();
+      return true;
+    },
+    settleTowerBattle: (isWin) => {
+      const battle = Game.battle.currentBattle;
+      if (!battle || !battle.isTower) return;
+      const layer = battle.layer;
+      if (isWin) {
+        // 更新通關記錄
+        if (layer > Game.player.towerData.maxPassedLayer) {
+          Game.player.towerData.maxPassedLayer = layer;
+          Game.log.addLog(`恭喜！通關試煉塔第${layer}層，刷新最高記錄！`, 'success');
+        } else {
+          Game.log.addLog(`通關試煉塔第${layer}層！`, 'success');
+        }
+        Game.player.towerData.currentLayer = layer + 1;
+        // 發放通關獎勵
+        const rewards = {
+          exp: TOWER_CONFIG.baseRewardExp * layer,
+          gold: TOWER_CONFIG.baseRewardGold * layer,
+          items: [
+            { id: GameUtils.generateUniqueId(), name: '寵物經驗丹', type: ITEM_TYPE.MATERIAL, count: layer * 10 },
+            { id: GameUtils.generateUniqueId(), name: '神器碎片', type: ITEM_TYPE.MATERIAL, count: layer },
+          ],
+        };
+        // BOSS層額外獎勵
+        if (layer % TOWER_CONFIG.bossLayerInterval === 0) {
+          rewards.diamond = layer * 10;
+          rewards.items.push({ id: GameUtils.generateUniqueId(), name: '寵物召喚卷', type: ITEM_TYPE.MATERIAL, count: 1 });
+        }
+        Game.drop.grantRewards(rewards);
+        // 檢查神器解鎖
+        Game.godWeapon.checkUnlock();
+      }
+    },
+    claimDailyReward: () => {
+      if (Game.player.towerData.dailyRewardClaimed) {
+        Game.log.addLog('今日獎勵已領取，請明日再來', 'warning');
+        return false;
+      }
+      const maxLayer = Game.player.towerData.maxPassedLayer;
+      if (maxLayer <= 0) {
+        Game.log.addLog('請先通關至少1層試煉塔', 'warning');
+        return false;
+      }
+      const rewards = {
+        diamond: maxLayer * TOWER_CONFIG.dailyRewardPerLayer.diamond,
+        items: [
+          { id: GameUtils.generateUniqueId(), name: '寵物經驗丹', type: ITEM_TYPE.MATERIAL, count: maxLayer * TOWER_CONFIG.dailyRewardPerLayer.petExp },
+          { id: GameUtils.generateUniqueId(), name: '神器碎片', type: ITEM_TYPE.MATERIAL, count: maxLayer * TOWER_CONFIG.dailyRewardPerLayer.godWeaponFragment },
+        ],
+      };
+      Game.drop.grantRewards(rewards);
+      Game.player.towerData.dailyRewardClaimed = true;
+      Game.log.addLog('試煉塔每日獎勵領取成功！', 'success');
+      Game.render.renderTowerView();
+      return true;
+    },
+  },
+
+  // 神器系統模塊
+  godWeapon: {
+    initData: () => {
+      if (!Game.player.godWeaponData) {
+        Game.player.godWeaponData = {
+          unlockedWeapons: [],
+          weapons: {},
+        };
+      }
+      Game.godWeapon.checkUnlock();
+    },
+    checkUnlock: () => {
+      const maxLayer = Game.player.towerData.maxPassedLayer;
+      let hasNewUnlock = false;
+      GOD_WEAPON_CONFIG.forEach(weapon => {
+        if (Game.player.godWeaponData.unlockedWeapons.includes(weapon.id)) return;
+        // 解鎖條件：通關對應層數
+        const needLayer = parseInt(weapon.unlockDesc.match(/\d+/)[0]);
+        if (maxLayer >= needLayer) {
+          Game.player.godWeaponData.unlockedWeapons.push(weapon.id);
+          Game.player.godWeaponData.weapons[weapon.id] = { level: 1, exp: 0 };
+          Game.log.addLog(`解鎖新神器：${weapon.name}`, 'success');
+          hasNewUnlock = true;
+        }
+      });
+      if (hasNewUnlock) Game.attribute.calculateFinalAttr();
+    },
+    getWeaponTotalAttr: () => {
+      const attr = {};
+      Game.player.godWeaponData.unlockedWeapons.forEach(weaponId => {
+        const weaponConfig = GOD_WEAPON_CONFIG.find(w => w.id === weaponId);
+        const weaponData = Game.player.godWeaponData.weapons[weaponId];
+        const levelMulti = 1 + (weaponData.level - 1) * 0.1;
+        for (const key in weaponConfig.baseAttr) {
+          attr[key] = (attr[key] || 0) + weaponConfig.baseAttr[key] * levelMulti;
+        }
+      });
+      return attr;
+    },
+    levelUpWeapon: (weaponId) => {
+      const weaponData = Game.player.godWeaponData.weapons[weaponId];
+      const weaponConfig = GOD_WEAPON_CONFIG.find(w => w.id === weaponId);
+      if (!weaponData || !weaponConfig || weaponData.level >= weaponConfig.maxLevel) {
+        Game.log.addLog('升級失敗：神器已達到最高等級', 'danger');
+        return false;
+      }
+      const needFragment = weaponData.level * 10;
+      const fragmentItem = Game.player.backpack.find(i => i.name === '神器碎片');
+      if (!fragmentItem || (fragmentItem.count || 1) < needFragment) {
+        Game.log.addLog(`升級失敗：需要神器碎片 x${needFragment}`, 'danger');
+        return false;
+      }
+      fragmentItem.count -= needFragment;
+      if (fragmentItem.count <= 0) Game.backpack.removeItem(fragmentItem.id);
+      weaponData.level += 1;
+      Game.attribute.calculateFinalAttr();
+      Game.log.addLog(`${weaponConfig.name} 升級成功！當前等級 Lv.${weaponData.level}`, 'success');
+      Game.render.renderGodWeaponView();
+      return true;
+    },
+  },
+
+  // 宗門系統模塊
+  sector: {
+    initData: () => {
+      if (!Game.player.sectorData) {
+        Game.player.sectorData = {
+          name: '我的宗門',
+          level: 1,
+          exp: 0,
+          contribution: 0,
+          dailyTasks: [],
+          lastDailyReset: Date.now(),
+          cultivate: {},
+        };
+        SECTOR_CULTIVATE_CONFIG.forEach(cultivate => {
+          Game.player.sectorData.cultivate[cultivate.id] = { level: 0 };
+        });
+      }
+      Game.sector.checkDailyReset();
+    },
+    checkDailyReset: () => {
+      const now = Date.now();
+      const oneDay = 86400000;
+      if (now - Game.player.sectorData.lastDailyReset >= oneDay) {
+        // 刷新每日任務
+        Game.sector.refreshDailyTasks();
+        Game.player.sectorData.lastDailyReset = now;
+        Game.log.addLog('宗門每日任務已重置', 'success');
+      }
+      if (Game.player.sectorData.dailyTasks.length === 0) {
+        Game.sector.refreshDailyTasks();
+      }
+    },
+    refreshDailyTasks: () => {
+      const tasks = [];
+      const tempTaskList = [...SECTOR_TASK_CONFIG];
+      for (let i = 0; i < SECTOR_CONFIG.dailyTaskCount; i++) {
+        if (tempTaskList.length === 0) break;
+        const randomIndex = GameUtils.getRandomInt(0, tempTaskList.length - 1);
+        const task = tempTaskList.splice(randomIndex, 1)[0];
+        tasks.push({ ...task, progress: 0, finished: false, claimed: false });
+      }
+      Game.player.sectorData.dailyTasks = tasks;
+    },
+    updateTaskProgress: (taskId, addCount = 1) => {
+      const task = Game.player.sectorData.dailyTasks.find(t => t.id === taskId);
+      if (!task || task.finished) return;
+      task.progress = Math.min(task.progress + addCount, task.target);
+      if (task.progress >= task.target) {
+        task.finished = true;
+        Game.log.addLog(`宗門任務「${task.name}」已完成！`, 'success');
+      }
+      Game.render.renderSectorView();
+    },
+    claimTaskReward: (taskId) => {
+      const task = Game.player.sectorData.dailyTasks.find(t => t.id === taskId);
+      if (!task || !task.finished || task.claimed) return false;
+      // 發放獎勵
+      Game.player.sectorData.contribution += task.reward.contribution;
+      Game.player.sectorData.exp += task.reward.sectorExp;
+      // 宗門升級檢查
+      Game.sector.checkLevelUp();
+      task.claimed = true;
+      Game.log.addLog(`領取了宗門任務「${task.name}」的獎勵`, 'success');
+      Game.render.renderSectorView();
+      return true;
+    },
+    checkLevelUp: () => {
+      const { level, exp } = Game.player.sectorData;
+      if (level >= SECTOR_CONFIG.maxLevel) return;
+      const needExp = SECTOR_CONFIG.baseLevelUpExp * level;
+      if (exp >= needExp) {
+        Game.player.sectorData.exp -= needExp;
+        Game.player.sectorData.level += 1;
+        Game.log.addLog(`恭喜！宗門等級提升至 Lv.${Game.player.sectorData.level}`, 'success');
+      }
+    },
+    levelUpCultivate: (cultivateId) => {
+      const cultivateData = Game.player.sectorData.cultivate[cultivateId];
+      const cultivateConfig = SECTOR_CULTIVATE_CONFIG.find(c => c.id === cultivateId);
+      if (!cultivateData || !cultivateConfig || cultivateData.level >= cultivateConfig.maxLevel) {
+        Game.log.addLog('升級失敗：功法已達到最高等級', 'danger');
+        return false;
+      }
+      const needContribution = cultivateConfig.costPerLevel * (cultivateData.level + 1);
+      if (Game.player.sectorData.contribution < needContribution) {
+        Game.log.addLog(`升級失敗：需要宗門貢獻 x${needContribution}`, 'danger');
+        return false;
+      }
+      Game.player.sectorData.contribution -= needContribution;
+      cultivateData.level += 1;
+      Game.attribute.calculateFinalAttr();
+      Game.log.addLog(`${cultivateConfig.name} 升級成功！當前等級 Lv.${cultivateData.level}`, 'success');
+      Game.render.renderSectorView();
+      return true;
+    },
+    getCultivateTotalAttr: () => {
+      const attr = {};
+      for (const cultivateId in Game.player.sectorData.cultivate) {
+        const cultivateData = Game.player.sectorData.cultivate[cultivateId];
+        const cultivateConfig = SECTOR_CULTIVATE_CONFIG.find(c => c.id === cultivateId);
+        if (cultivateData.level <= 0 || !cultivateConfig) continue;
+        for (const key in cultivateConfig.attr) {
+          attr[key] = (attr[key] || 0) + cultivateConfig.attr[key] * cultivateData.level;
+        }
+      }
+      return attr;
+    },
+  },
+
+  // 擴展渲染模塊
+  render: Object.assign(Game.render, {
+    renderPetView: () => {
+      const petView = document.getElementById('petView');
+      Game.pet.initData();
+      const battlingPetId = Game.player.petData.battlingPet;
+      petView.innerHTML = `
+        <div class="card">
+          <h2 class="card-title">寵物夥伴</h2>
+          <div style="margin-bottom: 1.5rem;">當前出戰寵物：<span style="color: var(--warning-color); font-weight: bold;">${battlingPetId ? PET_CONFIG.find(p => p.id === battlingPetId).name : '無'}</span></div>
+          <div class="pet-grid">
+            ${PET_CONFIG.map(pet => {
+              const isActivated = Game.player.petData.activatedPets.includes(pet.id);
+              const isBattling = battlingPetId === pet.id;
+              const petData = Game.player.petData.pets[pet.id];
+              return `
+                <div class="pet-card quality-${pet.quality} ${isActivated ? 'activated' : ''} ${isBattling ? 'battling' : ''}">
+                  <div class="pet-avatar quality-${pet.quality}">${pet.name.charAt(0)}</div>
+                  <h3 style="margin-bottom: 0.3rem;">${pet.name}</h3>
+                  ${isActivated ? `
+                    <div style="font-size: 0.8rem; margin-bottom: 0.3rem;">等級：Lv.${petData.level} | 星級：★${petData.star}</div>
+                    <div style="font-size: 0.7rem; color: #AAAAAA; margin-bottom: 0.8rem;">${pet.skill.desc}</div>
+                    <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;">
+                      <button class="btn btn-sm ${isBattling ? 'btn-warning' : 'btn-outline'}" style="flex: 1;" id="pet-battle-${pet.id}">
+                        ${isBattling ? '出戰中' : '設置出戰'}
+                      </button>
+                      <button class="btn btn-sm btn-primary" style="flex: 1;" id="pet-upgrade-${pet.id}">升級</button>
+                    </div>
+                  ` : `
+                    <div style="font-size: 0.7rem; color: #AAAAAA; margin-bottom: 0.8rem;">${pet.desc}</div>
+                    <button class="btn btn-outline" style="width: 100%;" disabled>未解鎖</button>
+                  `}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+      // 按鈕事件
+      PET_CONFIG.forEach(pet => {
+        const battleBtn = document.getElementById(`pet-battle-${pet.id}`);
+        if (battleBtn) battleBtn.addEventListener('click', () => Game.pet.setBattlingPet(pet.id));
+        const upgradeBtn = document.getElementById(`pet-upgrade-${pet.id}`);
+        if (upgradeBtn) upgradeBtn.addEventListener('click', () => Game.pet.levelUpPet(pet.id));
+      });
+    },
+    renderTowerView: () => {
+      const towerView = document.getElementById('towerView');
+      Game.tower.initData();
+      const { maxPassedLayer, currentLayer, dailyRewardClaimed } = Game.player.towerData;
+      towerView.innerHTML = `
+        <div class="card">
+          <div class="backpack-header">
+            <h2 class="card-title" style="margin: 0;">無盡試煉塔</h2>
+            <button class="btn btn-success" id="tower-daily-reward-btn" ${dailyRewardClaimed ? 'disabled' : ''}>
+              ${dailyRewardClaimed ? '今日已領取' : '領取每日獎勵'}
+            </button>
+          </div>
+          <div style="text-align: center; margin: 1rem 0;">
+            <div style="font-size: 1.2rem; font-weight: bold;">最高通關：第${maxPassedLayer}層</div>
+            <div style="color: #AAAAAA; font-size: 0.9rem;">當前可挑戰：第${currentLayer}層</div>
+          </div>
+          <h3 class="card-title">可挑戰層數</h3>
+          <div class="tower-layer-list">
+            ${Array(Math.min(10, currentLayer + 5)).fill('').map((_, index) => {
+              const layer = Math.max(1, currentLayer - 2) + index;
+              const isPassed = layer <= maxPassedLayer;
+              const isCurrent = layer === currentLayer;
+              return `
+                <div class="tower-layer-card ${isPassed ? 'passed' : ''} ${isCurrent ? 'current' : ''}">
+                  <div style="font-weight: bold; font-size: 1.1rem;">第${layer}層</div>
+                  <div>${layer % 5 === 0 ? '<span style="color: var(--warning-color);">BOSS層</span>' : '普通層'}</div>
+                  <div>${isPassed ? '<span style="color: var(--success-color);">已通關</span>' : '<span style="color: var(--danger-color);">未通關</span>'}</div>
+                  <button class="btn btn-primary" id="tower-start-${layer}" ${isPassed && layer < currentLayer - 2 ? 'disabled' : ''}>
+                    ${isPassed ? '再次挑戰' : '開始挑戰'}
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+      // 按鈕事件
+      document.getElementById('tower-daily-reward-btn').addEventListener('click', Game.tower.claimDailyReward);
+      for (let i = Math.max(1, currentLayer - 2); i <= Math.min(currentLayer + 5, currentLayer + 5); i++) {
+        const btn = document.getElementById(`tower-start-${i}`);
+        if (btn) btn.addEventListener('click', () => Game.tower.startLayerBattle(i));
+      }
+    },
+    renderGodWeaponView: () => {
+      const godWeaponView = document.getElementById('godWeaponView');
+      Game.godWeapon.initData();
+      godWeaponView.innerHTML = `
+        <div class="card">
+          <h2 class="card-title">神器系統</h2>
+          <div class="god-weapon-grid">
+            ${GOD_WEAPON_CONFIG.map(weapon => {
+              const isUnlocked = Game.player.godWeaponData.unlockedWeapons.includes(weapon.id);
+              const weaponData = Game.player.godWeaponData.weapons[weapon.id];
+              return `
+                <div class="god-weapon-card ${isUnlocked ? 'unlocked' : ''}">
+                  <div class="god-weapon-name">${weapon.name}</div>
+                  ${isUnlocked ? `
+                    <div style="text-align: center; margin-bottom: 0.5rem;">等級：Lv.${weaponData.level}/${weapon.maxLevel}</div>
+                    <div style="font-size: 0.8rem; color: #CCCCCC; margin-bottom: 0.8rem;">
+                      ${Object.entries(weapon.baseAttr).map(([key, value]) => `${ATTR_NAME_MAP[key]} +${GameUtils.formatAttributeValue(key, value * (1 + (weaponData.level - 1) * 0.1))}`).join('<br>')}
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--warning-color); margin-bottom: 0.8rem;">神器效果：${weapon.effect}</div>
+                    <button class="btn btn-warning" style="width: 100%;" id="weapon-upgrade-${weapon.id}" ${weaponData.level >= weapon.maxLevel ? 'disabled' : ''}>
+                      ${weaponData.level >= weapon.maxLevel ? '已滿級' : `升級 (神器碎片 x${weaponData.level * 10})`}
+                    </button>
+                  ` : `
+                    <div style="font-size: 0.8rem; color: #AAAAAA; text-align: center; margin: 1rem 0;">${weapon.unlockDesc}</div>
+                    <button class="btn btn-outline" style="width: 100%;" disabled>未解鎖</button>
+                  `}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+      // 升級按鈕事件
+      GOD_WEAPON_CONFIG.forEach(weapon => {
+        const btn = document.getElementById(`weapon-upgrade-${weapon.id}`);
+        if (btn) btn.addEventListener('click', () => Game.godWeapon.levelUpWeapon(weapon.id));
+      });
+    },
+    renderSectorView: () => {
+      const sectorView = document.getElementById('sectorView');
+      Game.sector.initData();
+      const { name, level, exp, contribution, dailyTasks } = Game.player.sectorData;
+      const needExp = SECTOR_CONFIG.baseLevelUpExp * level;
+      sectorView.innerHTML = `
+        <div class="card">
+          <div class="backpack-header">
+            <h2 class="card-title" style="margin: 0;">${name}</h2>
+            <span>宗門等級：Lv.${level} / ${SECTOR_CONFIG.maxLevel}</span>
+          </div>
+          <div style="margin-bottom: 1.5rem;">
+            <span>宗門經驗：${exp}/${needExp} | 當前貢獻：${contribution}</span>
+            <div class="task-progress-bar" style="width: 100%; margin-top: 0.5rem;">
+              <div class="task-progress-fill" style="width: ${Math.min(100, (exp / needExp) * 100)}%"></div>
+            </div>
+          </div>
+          <div class="sector-grid">
+            <div>
+              <h3 class="card-title">每日宗門任務</h3>
+              <div>
+                ${dailyTasks.map(task => `
+                  <div class="sector-task-item">
+                    <div>
+                      <h4 style="margin-bottom: 0.3rem;">${task.name}</h4>
+                      <p style="font-size: 0.8rem; color: #AAAAAA;">${task.desc}</p>
+                      <div class="task-progress-bar" style="width: 200px; margin-top: 0.3rem;">
+                        <div class="task-progress-fill" style="width: ${Math.min(100, (task.progress / task.target) * 100)}%"></div>
+                      </div>
+                      <span style="font-size: 0.8rem;">進度：${task.progress}/${task.target}</span>
+                    </div>
+                    <button class="btn ${task.finished && !task.claimed ? 'btn-success' : 'btn-outline'}" ${!task.finished || task.claimed ? 'disabled' : ''} id="sector-task-claim-${task.id}">
+                      ${task.claimed ? '已領取' : task.finished ? '領取獎勵' : '未完成'}
+                    </button>
+                  </div>
+                `).join('')}
+              </div>
+              <h3 class="card-title" style="margin-top: 1.5rem;">宗門功法修煉</h3>
+              <div class="sector-cultivate-grid">
+                ${SECTOR_CULTIVATE_CONFIG.map(cultivate => {
+                  const cultivateData = Game.player.sectorData.cultivate[cultivate.id];
+                  return `
+                    <div class="card" style="margin: 0;">
+                      <h4 style="margin-bottom: 0.5rem;">${cultivate.name}</h4>
+                      <div style="font-size: 0.8rem; margin-bottom: 0.5rem;">等級：Lv.${cultivateData.level}/${cultivate.maxLevel}</div>
+                      <div style="font-size: 0.7rem; color: #AAAAAA; margin-bottom: 0.8rem;">${cultivate.desc}</div>
+                      <button class="btn btn-primary" style="width: 100%;" id="cultivate-upgrade-${cultivate.id}" ${cultivateData.level >= cultivate.maxLevel ? 'disabled' : ''}>
+                        ${cultivateData.level >= cultivate.maxLevel ? '已滿級' : `升級 (貢獻 x${cultivate.costPerLevel * (cultivateData.level + 1)})`}
+                      </button>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+            <div>
+              <div class="card">
+                <h3 class="card-title">宗門商店</h3>
+                <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                  <div class="goods-card" style="margin: 0;">
+                    <div class="goods-name">寵物經驗丹</div>
+                    <div class="goods-desc">寵物升級專用材料</div>
+                    <div class="goods-price">價格：10 貢獻</div>
+                    <button class="btn btn-primary" style="width: 100%;" id="shop-buy-petexp">購買</button>
+                  </div>
+                  <div class="goods-card" style="margin: 0;">
+                    <div class="goods-name">神器碎片</div>
+                    <div class="goods-desc">神器升級專用材料</div>
+                    <div class="goods-price">價格：50 貢獻</div>
+                    <button class="btn btn-primary" style="width: 100%;" id="shop-buy-godfragment">購買</button>
+                  </div>
+                  <div class="goods-card" style="margin: 0;">
+                    <div class="goods-name">資質丹</div>
+                    <div class="goods-desc">提升角色資質專用道具</div>
+                    <div class="goods-price">價格：100 貢獻</div>
+                    <button class="btn btn-primary" style="width: 100%;" id="shop-buy-qualification">購買</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      // 任務領取事件
+      dailyTasks.forEach(task => {
+        const btn = document.getElementById(`sector-task-claim-${task.id}`);
+        if (btn) btn.addEventListener('click', () => Game.sector.claimTaskReward(task.id));
+      });
+      // 功法升級事件
+      SECTOR_CULTIVATE_CONFIG.forEach(cultivate => {
+        const btn = document.getElementById(`cultivate-upgrade-${cultivate.id}`);
+        if (btn) btn.addEventListener('click', () => Game.sector.levelUpCultivate(cultivate.id));
+      });
+      // 商店購買事件
+      document.getElementById('shop-buy-petexp').addEventListener('click', () => {
+        if (Game.player.sectorData.contribution < 10) {
+          Game.log.addLog('購買失敗：宗門貢獻不足', 'danger');
+          return;
+        }
+        Game.player.sectorData.contribution -= 10;
+        Game.backpack.addItem({ id: GameUtils.generateUniqueId(), name: '寵物經驗丹', type: ITEM_TYPE.MATERIAL, count: 10, desc: '寵物升級專用材料' });
+        Game.log.addLog('購買成功！獲得寵物經驗丹 x10', 'success');
+        Game.render.renderSectorView();
+      });
+      document.getElementById('shop-buy-godfragment').addEventListener('click', () => {
+        if (Game.player.sectorData.contribution < 50) {
+          Game.log.addLog('購買失敗：宗門貢獻不足', 'danger');
+          return;
+        }
+        Game.player.sectorData.contribution -= 50;
+        Game.backpack.addItem({ id: GameUtils.generateUniqueId(), name: '神器碎片', type: ITEM_TYPE.MATERIAL, count: 1, desc: '神器升級專用材料' });
+        Game.log.addLog('購買成功！獲得神器碎片 x1', 'success');
+        Game.render.renderSectorView();
+      });
+      document.getElementById('shop-buy-qualification').addEventListener('click', () => {
+        if (Game.player.sectorData.contribution < 100) {
+          Game.log.addLog('購買失敗：宗門貢獻不足', 'danger');
+          return;
+        }
+        Game.player.sectorData.contribution -= 100;
+        Game.backpack.addItem({ id: GameUtils.generateUniqueId(), name: '資質丹', type: ITEM_TYPE.MATERIAL, count: 1, desc: '提升角色資質專用道具' });
+        Game.log.addLog('購買成功！獲得資質丹 x1', 'success');
+        Game.render.renderSectorView();
+      });
+    },
+  }),
+});
+
+// 擴展導航欄，新增按鈕
+window.addEventListener('load', () => {
+  const mainNav = document.getElementById('mainNav');
+  const navList = [
+    { id: 'pet', name: '寵物' },
+    { id: 'tower', name: '試煉塔' },
+    { id: 'godWeapon', name: '神器' },
+    { id: 'sector', name: '宗門' },
+  ];
+  navList.forEach(nav => {
+    if (!document.querySelector(`.nav-btn[data-view="${nav.id}"]`)) {
+      const btn = document.createElement('button');
+      btn.className = 'nav-btn';
+      btn.dataset.view = nav.id;
+      btn.textContent = nav.name;
+      mainNav.insertBefore(btn, document.getElementById('saveManageBtn'));
+      btn.addEventListener('click', () => Game.render.switchView(nav.id));
+    }
+  });
+  // 初始化數據
+  Game.pet.initData();
+  Game.tower.initData();
+  Game.godWeapon.initData();
+  Game.sector.initData();
+});
+
+// 擴展視圖切換邏輯
+const originalViewSwitch = Game.render.switchView;
+Game.render.switchView = (viewName) => {
+  originalViewSwitch(viewName);
+  if (viewName === 'pet') Game.render.renderPetView();
+  if (viewName === 'tower') Game.render.renderTowerView();
+  if (viewName === 'godWeapon') Game.render.renderGodWeaponView();
+  if (viewName === 'sector') Game.render.renderSectorView();
+};
+
+// 擴展屬性計算邏輯，新增寵物、神器、宗門加成
+const originalAttrCalculate = Game.attribute.calculateFinalAttr;
+Game.attribute.calculateFinalAttr = () => {
+  originalAttrCalculate();
+  // 寵物屬性加成
+  const petAttr = Game.pet.getPetTotalAttr();
+  for (const key in petAttr) {
+    if (key === ATTR_TYPE.ALL_ATTR_MULTIPLIER) {
+      for (const attrKey in ATTR_TYPE) Game.player.finalAttr[attrKey] *= (1 + petAttr[key]);
+    } else {
+      Game.player.finalAttr[key] = (Game.player.finalAttr[key] || 0) + petAttr[key];
+    }
+  }
+  // 神器屬性加成
+  const weaponAttr = Game.godWeapon.getWeaponTotalAttr();
+  for (const key in weaponAttr) {
+    Game.player.finalAttr[key] = (Game.player.finalAttr[key] || 0) + weaponAttr[key];
+  }
+  // 宗門功法屬性加成
+  const cultivateAttr = Game.sector.getCultivateTotalAttr();
+  for (const key in cultivateAttr) {
+    Game.player.finalAttr[key] = (Game.player.finalAttr[key] || 0) + cultivateAttr[key];
+  }
+};
+
+// 擴展戰鬥回合邏輯，新增寵物攻擊
+const originalPlayerRoundEnd = Game.battle.playerRoundEnd;
+Game.battle.playerRoundEnd = () => {
+  originalPlayerRoundEnd();
+  // 玩家回合結束後，寵物發動攻擊
+  Game.pet.doPetAttack();
+};
+
+// 擴展玩法進度更新，同步宗門任務
+const originalBattleEnd = Game.battle.checkBattleEnd;
+Game.battle.checkBattleEnd = () => {
+  const battle = Game.battle.currentBattle;
+  const isEnd = originalBattleEnd();
+  if (isEnd && battle?.isWin) {
+    if (!battle.isPvp && !battle.isWorldBoss && !battle.isTower && !battle.isDungeon) {
+      Game.sector.updateTaskProgress('battle');
+    }
+    if (battle.isPvp) Game.sector.updateTaskProgress('pvp');
+    if (battle.isDungeon) Game.sector.updateTaskProgress('dungeon');
+    if (battle.isWorldBoss) Game.sector.updateTaskProgress('boss');
+  }
+  return isEnd;
+};
+
+const originalEnhanceEquip = Game.enhance.enhanceEquip;
+Game.enhance.enhanceEquip = (itemId, isWorn) => {
+  const result = originalEnhanceEquip(itemId, isWorn);
+  if (result) Game.sector.updateTaskProgress('enhance');
+  return result;
+};
+
+// 擴展每日重置邏輯
+const originalDailyReset = Game.task.checkDailyReset;
+Game.task.checkDailyReset = () => {
+  originalDailyReset();
+  Game.tower.checkDailyReset();
+  Game.sector.checkDailyReset();
+};
+
+// 擴展存檔加載邏輯，初始化新增數據
+const originalLoadGame = Game.save.loadGame;
+Game.save.loadGame = () => {
+  const result = originalLoadGame();
+  Game.pet.initData();
+  Game.tower.initData();
+  Game.godWeapon.initData();
+  Game.sector.initData();
+  return result;
+};
+
+// 測試方法：解鎖所有寵物、神器，添加測試材料
+window.unlockAllPetAndWeapon = () => {
+  PET_CONFIG.forEach(pet => Game.pet.unlockPet(pet.id));
+  Game.player.towerData.maxPassedLayer = 100;
+  Game.godWeapon.checkUnlock();
+  const materials = [
+    { name: '寵物經驗丹', count: 10000 },
+    { name: '神器碎片', count: 10000 },
+  ];
+  materials.forEach(material => {
+    const existing = Game.player.backpack.find(i => i.name === material.name);
+    if (existing) existing.count += material.count;
+    else Game.backpack.addItem({ id: GameUtils.generateUniqueId(), name: material.name, type: ITEM_TYPE.MATERIAL, count: material.count });
+  });
+  Game.player.sectorData.contribution += 10000;
+  Game.log.addLog('已解鎖所有寵物、神器，添加測試材料與宗門貢獻', 'success');
+  Game.attribute.calculateFinalAttr();
+  Game.render.renderPetView();
+  Game.render.renderGodWeaponView();
+  Game.render.renderSectorView();
+};
+</script>
 </body>
 </html>
