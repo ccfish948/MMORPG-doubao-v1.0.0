@@ -9511,5 +9511,970 @@ window.unlockAllPetAndWeapon = () => {
   Game.render.renderSectorView();
 };
 </script>
+<style>
+/* 第十三部分：新增系統專用樣式 - 完全兼容原有主題變量 */
+.talent-tree-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.talent-branch-card {
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  background: rgba(0,0,0,0.3);
+}
+.talent-branch-title {
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: var(--primary-color);
+}
+.talent-node-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.8rem;
+}
+.talent-node-card {
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.8rem;
+  background: rgba(0,0,0,0.2);
+  text-align: center;
+}
+.talent-node-card.unlocked {
+  border-color: var(--success-color);
+}
+.talent-node-card.available {
+  border-color: var(--warning-color);
+}
+.alchemy-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 1.5rem;
+}
+.alchemy-formula-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.alchemy-formula-card {
+  display: grid;
+  grid-template-columns: 1fr 100px 100px;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.3);
+}
+.adventure-modal {
+  max-width: 500px;
+  background: linear-gradient(135deg, #1A002E, #000000);
+  border: 3px solid var(--primary-color);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+}
+.adventure-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: var(--warning-color);
+}
+.enchant-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.enchant-attr-item {
+  padding: 0.5rem;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.2);
+  margin-bottom: 0.5rem;
+}
+.guide-collapse-item {
+  margin-bottom: 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.guide-collapse-header {
+  padding: 0.8rem 1rem;
+  background: rgba(142, 68, 173, 0.2);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+}
+.guide-collapse-content {
+  padding: 1rem;
+  background: rgba(0,0,0,0.2);
+  line-height: 1.6;
+  color: #CCCCCC;
+  display: none;
+}
+.guide-collapse-content.active {
+  display: block;
+}
+</style>
+
+<!-- 第十三部分：新增界面容器 -->
+<div id="talentView" class="view-container"></div>
+<div id="alchemyView" class="view-container"></div>
+<div id="enchantView" class="view-container"></div>
+<div id="guideView" class="view-container"></div>
+
+<!-- 第十三部分：奇遇事件彈窗 -->
+<div id="adventureModal" class="modal-overlay">
+  <div class="adventure-modal">
+    <div class="adventure-title" id="adventureTitle"></div>
+    <p id="adventureDesc" style="margin-bottom: 1.5rem; line-height: 1.6;"></p>
+    <div id="adventureReward" style="margin-bottom: 1.5rem;"></div>
+    <div class="modal-action-btns" id="adventureActionBtns"></div>
+  </div>
+</div>
+
+<script>
+// ==================== 第十三部分：天賦、煉丹、奇遇、附魔、攻略系統完整實現 ====================
+// 完全兼容原有核心框架，無侵入式修改，僅新增擴展功能
+const TALENT_BRANCH_TYPE = {
+  ATTACK: 'attack',
+  DEFENSE: 'defense',
+  SUPPORT: 'support',
+};
+
+const TALENT_CONFIG = {
+  [TALENT_BRANCH_TYPE.ATTACK]: {
+    name: '攻擊系',
+    unlockRebirthLevel: 0,
+    talents: [
+      { id: 'attack_1', name: '攻擊強化', attr: { [ATTR_TYPE.PHYSICAL_ATTACK]: 50, [ATTR_TYPE.MAGIC_ATTACK]: 50 }, maxLevel: 10, costPerLevel: 1, desc: '永久提升物理與法術攻擊力' },
+      { id: 'crit_rate_1', name: '暴擊強化', attr: { [ATTR_TYPE.CRIT_RATE]: 0.01 }, maxLevel: 10, costPerLevel: 1, desc: '永久提升暴擊率', unlockLevel: 2 },
+      { id: 'crit_damage_1', name: '暴傷強化', attr: { [ATTR_TYPE.CRIT_DAMAGE]: 0.03 }, maxLevel: 10, costPerLevel: 2, desc: '永久提升暴擊傷害', unlockLevel: 3 },
+      { id: 'ignore_defense', name: '破甲精通', attr: { [ATTR_TYPE.IGNORE_DEFENSE]: 0.02 }, maxLevel: 5, costPerLevel: 3, desc: '攻擊時無視目標防禦', unlockLevel: 5, unlockRebirth: 1 },
+      { id: 'attack_multi', name: '攻擊增幅', attr: { [ATTR_TYPE.ALL_ATTR_MULTIPLIER]: 0.02 }, maxLevel: 5, costPerLevel: 5, desc: '全攻擊屬性百分比提升', unlockLevel: 8, unlockRebirth: 2 },
+    ]
+  },
+  [TALENT_BRANCH_TYPE.DEFENSE]: {
+    name: '防禦系',
+    unlockRebirthLevel: 0,
+    talents: [
+      { id: 'defense_1', name: '防禦強化', attr: { [ATTR_TYPE.PHYSICAL_DEFENSE]: 50, [ATTR_TYPE.MAGIC_DEFENSE]: 50 }, maxLevel: 10, costPerLevel: 1, desc: '永久提升物理與法術防禦力' },
+      { id: 'hp_1', name: '生命強化', attr: { [ATTR_TYPE.MAX_HP]: 500 }, maxLevel: 10, costPerLevel: 1, desc: '永久提升最大生命值' },
+      { id: 'crit_defense_1', name: '抗暴強化', attr: { [ATTR_TYPE.CRIT_DEFENSE]: 0.03 }, maxLevel: 10, costPerLevel: 2, desc: '永久提升暴擊防禦', unlockLevel: 2 },
+      { id: 'dodge_1', name: '閃避強化', attr: { [ATTR_TYPE.DODGE]: 0.01 }, maxLevel: 10, costPerLevel: 2, desc: '永久提升閃避率', unlockLevel: 3 },
+      { id: 'damage_reduce', name: '傷害減免', attr: { [ATTR_TYPE.DAMAGE_REDUCE]: 0.02 }, maxLevel: 5, costPerLevel: 3, desc: '受到的所有傷害減免', unlockLevel: 5, unlockRebirth: 1 },
+      { id: 'defense_multi', name: '防禦增幅', attr: { [ATTR_TYPE.ALL_ATTR_MULTIPLIER]: 0.02 }, maxLevel: 5, costPerLevel: 5, desc: '全防禦屬性百分比提升', unlockLevel: 8, unlockRebirth: 2 },
+    ]
+  },
+  [TALENT_BRANCH_TYPE.SUPPORT]: {
+    name: '輔助系',
+    unlockRebirthLevel: 1,
+    talents: [
+      { id: 'exp_boost', name: '經驗增幅', attr: { [ATTR_TYPE.EXP_MULTIPLIER]: 0.05 }, maxLevel: 10, costPerLevel: 1, desc: '擊殺怪物獲得的經驗提升' },
+      { id: 'gold_boost', name: '金幣增幅', attr: { [ATTR_TYPE.GOLD_MULTIPLIER]: 0.05 }, maxLevel: 10, costPerLevel: 1, desc: '擊殺怪物獲得的金幣提升' },
+      { id: 'drop_boost', name: '掉落增幅', attr: { [ATTR_TYPE.DROP_RATE_MULTIPLIER]: 0.03 }, maxLevel: 10, costPerLevel: 2, desc: '道具掉落概率提升', unlockLevel: 2 },
+      { id: 'mp_recover', name: '藍量恢復', attr: { [ATTR_TYPE.MP_RECOVER]: 5 }, maxLevel: 10, costPerLevel: 2, desc: '每回合恢復魔法值', unlockLevel: 3 },
+      { id: 'hp_recover', name: '血量恢復', attr: { [ATTR_TYPE.HP_RECOVER]: 100 }, maxLevel: 10, costPerLevel: 3, desc: '每回合恢復生命值', unlockLevel: 5, unlockRebirth: 2 },
+      { id: 'all_boost', name: '萬能增幅', attr: { [ATTR_TYPE.ALL_ATTR_MULTIPLIER]: 0.01 }, maxLevel: 10, costPerLevel: 3, desc: '全屬性百分比提升', unlockLevel: 8, unlockRebirth: 3 },
+    ]
+  },
+};
+
+const ALCHEMY_CONFIG = [
+  { id: 'hp_pill', name: '小回血丹', type: 'heal', effect: { hpPercent: 0.3 }, material: { 靈草: 2 }, desc: '使用後恢復30%最大生命值，戰鬥中可使用' },
+  { id: 'mp_pill', name: '小回藍丹', type: 'mp', effect: { mpPercent: 0.3 }, material: { 靈草: 2 }, desc: '使用後恢復30%最大魔法值，戰鬥中可使用' },
+  { id: 'attack_pill', name: '攻擊丹', type: 'buff', effect: { attackMulti: 0.2, round: 3 }, material: { 靈草: 3, 毒囊: 1 }, desc: '3回合內提升20%攻擊力，戰鬥中可使用' },
+  { id: 'defense_pill', name: '防禦丹', type: 'buff', effect: { defenseMulti: 0.3, round: 3 }, material: { 靈草: 3, 堅硬外殼: 1 }, desc: '3回合內提升30%防禦力，戰鬥中可使用' },
+  { id: 'crit_pill', name: '暴擊丹', type: 'buff', effect: { critRate: 0.1, round: 3 }, material: { 靈草: 5, 尖牙: 2 }, desc: '3回合內提升10%暴擊率，戰鬥中可使用' },
+  { id: 'super_hp_pill', name: '大回血丹', type: 'heal', effect: { hpPercent: 0.8 }, material: { 靈草: 10, 百年靈芝: 1 }, desc: '使用後恢復80%最大生命值，戰鬥中可使用' },
+];
+
+const ADVENTURE_CONFIG = [
+  {
+    id: 'hidden_merchant',
+    title: '隱藏商人',
+    desc: '你在山林中遇到了一位隱藏的行腳商人，他願意贈送你一批稀有材料！',
+    type: 'reward',
+    reward: { 強化石: 50, 洗練石: 20, 靈草: 30 },
+  },
+  {
+    id: 'immortal_guide',
+    title: '仙人指點',
+    desc: '路遇隱世仙人，得到了他的親自指點，獲得了大量修為！',
+    type: 'reward',
+    reward: { exp: 100000, diamond: 100 },
+  },
+  {
+    id: 'treasure_chest',
+    title: '寶藏秘境',
+    desc: '意外發現了一處上古秘境，打開寶箱獲得了珍貴的道具！',
+    type: 'reward',
+    reward: { 神器碎片: 10, 寵物經驗丹: 100, 資質丹: 5 },
+  },
+  {
+    id: 'monster_ambush',
+    title: '怪物圍攻',
+    desc: '突然竄出一群野怪圍攻你，你奮力擊退了它們，獲得了對應的戰利品！',
+    type: 'battle',
+    reward: { gold: 50000, 強化石: 30 },
+  },
+  {
+    id: 'cave_inheritance',
+    title: '洞府傳承',
+    desc: '找到了上古修士的洞府，獲得了他的畢生傳承，全屬性得到了永久提升！',
+    type: 'reward',
+    reward: { 全屬性增幅: 0.01 },
+  },
+];
+
+const ENCHANT_CONFIG = {
+  maxEnchantLevel: 10,
+  baseCost: { 附魔石: 5 },
+  attrPool: [
+    { key: ATTR_TYPE.PHYSICAL_ATTACK, name: '物理攻擊', baseValue: 20 },
+    { key: ATTR_TYPE.MAGIC_ATTACK, name: '法術攻擊', baseValue: 20 },
+    { key: ATTR_TYPE.PHYSICAL_DEFENSE, name: '物理防禦', baseValue: 15 },
+    { key: ATTR_TYPE.MAGIC_DEFENSE, name: '法術防禦', baseValue: 15 },
+    { key: ATTR_TYPE.MAX_HP, name: '最大生命值', baseValue: 200 },
+    { key: ATTR_TYPE.CRIT_RATE, name: '暴擊率', baseValue: 0.005, isPercent: true },
+    { key: ATTR_TYPE.CRIT_DAMAGE, name: '暴擊傷害', baseValue: 0.01, isPercent: true },
+    { key: ATTR_TYPE.HIT, name: '命中率', baseValue: 0.005, isPercent: true },
+    { key: ATTR_TYPE.DODGE, name: '閃避率', baseValue: 0.005, isPercent: true },
+  ],
+  maxAttrCount: 3,
+  triggerRate: 0.15, // 戰鬥結束後觸發奇遇的概率
+};
+
+const GUIDE_CONFIG = [
+  { id: 'base', title: '基礎玩法', content: '1. 遊戲核心為回合制戰鬥，通關關卡可獲得經驗、金幣、裝備等獎勵<br>2. 角色等級提升可解鎖更多玩法，轉生可突破等級上限<br>3. 裝備是提升戰鬥力的核心，可通過強化、洗練、寶石、銘刻、附魔全方位提升' },
+  { id: 'equip', title: '裝備系統', content: '1. 裝備分為8個品質，品質越高屬性越強，槽位越多<br>2. 強化可提升裝備基礎屬性，失敗不會掉級，累積失敗進度可保底成功<br>3. 洗練可重置裝備拓展屬性，鎖定屬性會增加洗練石消耗<br>4. 寶石、銘刻、雕文、附魔可進一步提升裝備屬性，互不衝突' },
+  { id: 'cultivate', title: '養成系統', content: '1. 資質、精通、天賦、宗門功法可永久提升角色屬性<br>2. 寵物可協助攻擊，神器提供強大的被動效果<br>3. 時裝、稱號不僅有外觀，還能提供屬性加成<br>4. 轉生可突破等級上限，獲得全屬性永久增幅，解鎖更多天賦' },
+  { id: 'daily', title: '日常玩法', content: '1. 每日簽到、每日任務可獲得大量基礎資源<br>2. 日常副本是經驗、金幣、材料、寶石的核心產出途徑<br>3. 世界BOSS、試煉塔可獲得稀有材料、神器、寵物道具<br>4. PVP對戰可獲得榮譽幣，在榮譽商店兌換稀有道具' },
+  { id: 'battle', title: '戰鬥系統', content: '1. 戰鬥為回合制，玩家先手攻擊，隨後怪物反擊<br>2. 可手動釋放技能、使用丹藥，也可開啟自動戰鬥<br>3. 暴擊可造成額外傷害，閃避可完全規避傷害<br>4. 寵物會在玩家回合結束後協助攻擊，技能有冷卻時間' },
+  { id: 'save', title: '存檔說明', content: '1. 遊戲數據自動保存到瀏覽器本地存儲，刷新頁面不會丟失<br>2. 支持3個獨立存檔槽位，可自由切換<br>3. 支持存檔導入導出，可手動備份存檔，避免數據丟失<br>4. 重置遊戲會清空當前存檔槽的所有數據，請謹慎操作' },
+];
+
+// 新增屬性類型
+Object.assign(ATTR_TYPE, {
+  IGNORE_DEFENSE: 'ignoreDefense',
+  DAMAGE_REDUCE: 'damageReduce',
+  EXP_MULTIPLIER: 'expMultiplier',
+  GOLD_MULTIPLIER: 'goldMultiplier',
+  DROP_RATE_MULTIPLIER: 'dropRateMultiplier',
+  HP_RECOVER: 'hpRecover',
+  MP_RECOVER: 'mpRecover',
+  ALL_ATTR_MULTIPLIER: 'allAttrMultiplier',
+});
+
+Object.assign(ATTR_NAME_MAP, {
+  [ATTR_TYPE.IGNORE_DEFENSE]: '防禦穿透',
+  [ATTR_TYPE.DAMAGE_REDUCE]: '傷害減免',
+  [ATTR_TYPE.EXP_MULTIPLIER]: '經驗增幅',
+  [ATTR_TYPE.GOLD_MULTIPLIER]: '金幣增幅',
+  [ATTR_TYPE.DROP_RATE_MULTIPLIER]: '掉落增幅',
+  [ATTR_TYPE.HP_RECOVER]: '生命恢復',
+  [ATTR_TYPE.MP_RECOVER]: '魔法恢復',
+  [ATTR_TYPE.ALL_ATTR_MULTIPLIER]: '全屬性增幅',
+});
+
+Object.assign(ATTR_IS_PERCENT, {
+  [ATTR_TYPE.IGNORE_DEFENSE]: true,
+  [ATTR_TYPE.DAMAGE_REDUCE]: true,
+  [ATTR_TYPE.EXP_MULTIPLIER]: true,
+  [ATTR_TYPE.GOLD_MULTIPLIER]: true,
+  [ATTR_TYPE.DROP_RATE_MULTIPLIER]: true,
+});
+
+Object.assign(Game, {
+  // 天賦系統模塊
+  talent: {
+    initData: () => {
+      if (!Game.player.talentData) {
+        Game.player.talentData = {
+          talentPoint: 0,
+          talents: {},
+        };
+        // 初始化所有天賦等級
+        for (const branchKey in TALENT_CONFIG) {
+          TALENT_CONFIG[branchKey].talents.forEach(talent => {
+            Game.player.talentData.talents[talent.id] = { level: 0 };
+          });
+        }
+      }
+    },
+    addTalentPoint: (count = 1) => {
+      Game.talent.initData();
+      Game.player.talentData.talentPoint += count;
+      Game.log.addLog(`獲得天賦點 x${count}`, 'success');
+    },
+    levelUpTalent: (talentId, branchKey) => {
+      Game.talent.initData();
+      const branchConfig = TALENT_CONFIG[branchKey];
+      const talentConfig = branchConfig.talents.find(t => t.id === talentId);
+      const talentData = Game.player.talentData.talents[talentId];
+      if (!talentConfig || !talentData) {
+        Game.log.addLog('升級失敗：天賦不存在', 'danger');
+        return false;
+      }
+      // 解鎖條件檢查
+      if (branchConfig.unlockRebirthLevel > Game.player.rebirthData.rebirthLevel) {
+        Game.log.addLog(`升級失敗：需要${branchConfig.unlockRebirthLevel}轉解鎖該天賦系`, 'danger');
+        return false;
+      }
+      if (talentConfig.unlockRebirth && talentConfig.unlockRebirth > Game.player.rebirthData.rebirthLevel) {
+        Game.log.addLog(`升級失敗：需要${talentConfig.unlockRebirth}轉解鎖該天賦`, 'danger');
+        return false;
+      }
+      if (talentConfig.unlockLevel && talentData.level < talentConfig.unlockLevel - 1) {
+        Game.log.addLog(`升級失敗：需要前置天賦達到${talentConfig.unlockLevel - 1}級`, 'danger');
+        return false;
+      }
+      if (talentData.level >= talentConfig.maxLevel) {
+        Game.log.addLog('升級失敗：天賦已達到最高等級', 'danger');
+        return false;
+      }
+      if (Game.player.talentData.talentPoint < talentConfig.costPerLevel) {
+        Game.log.addLog(`升級失敗：需要天賦點 x${talentConfig.costPerLevel}`, 'danger');
+        return false;
+      }
+      // 扣除點數，升級天賦
+      Game.player.talentData.talentPoint -= talentConfig.costPerLevel;
+      talentData.level += 1;
+      Game.attribute.calculateFinalAttr();
+      Game.log.addLog(`${talentConfig.name} 升級成功！當前等級 Lv.${talentData.level}`, 'success');
+      Game.render.renderTalentView();
+      return true;
+    },
+    getTalentTotalAttr: () => {
+      const attr = {};
+      for (const talentId in Game.player.talentData.talents) {
+        const talentData = Game.player.talentData.talents[talentId];
+        if (talentData.level <= 0) continue;
+        let talentConfig = null;
+        for (const branchKey in TALENT_CONFIG) {
+          const found = TALENT_CONFIG[branchKey].talents.find(t => t.id === talentId);
+          if (found) { talentConfig = found; break; }
+        }
+        if (!talentConfig) continue;
+        for (const key in talentConfig.attr) {
+          attr[key] = (attr[key] || 0) + talentConfig.attr[key] * talentData.level;
+        }
+      }
+      return attr;
+    },
+  },
+
+  // 煉丹系統模塊
+  alchemy: {
+    initData: () => {
+      if (!Game.player.alchemyData) {
+        Game.player.alchemyData = {
+          level: 1,
+          exp: 0,
+          pills: {},
+        };
+        ALCHEMY_CONFIG.forEach(pill => {
+          Game.player.alchemyData.pills[pill.id] = 0;
+        });
+      }
+    },
+    canAlchemy: (pillId) => {
+      const pillConfig = ALCHEMY_CONFIG.find(p => p.id === pillId);
+      if (!pillConfig) return false;
+      // 檢查材料
+      for (const [materialName, needCount] of Object.entries(pillConfig.material)) {
+        const material = Game.player.backpack.find(i => i.name === materialName);
+        if (!material || (material.count || 1) < needCount) return false;
+      }
+      return true;
+    },
+    doAlchemy: (pillId, count = 1) => {
+      const pillConfig = ALCHEMY_CONFIG.find(p => p.id === pillId);
+      if (!pillConfig || !Game.alchemy.canAlchemy(pillId)) {
+        Game.log.addLog('煉丹失敗：材料不足', 'danger');
+        return false;
+      }
+      // 扣除材料
+      for (const [materialName, needCount] of Object.entries(pillConfig.material)) {
+        const material = Game.player.backpack.find(i => i.name === materialName);
+        material.count -= needCount * count;
+        if (material.count <= 0) Game.backpack.removeItem(material.id);
+      }
+      // 增加丹藥
+      Game.player.alchemyData.pills[pillId] += count;
+      // 增加煉丹經驗
+      Game.player.alchemyData.exp += count * 10;
+      Game.log.addLog(`煉丹成功！獲得${pillConfig.name} x${count}`, 'success');
+      Game.render.renderAlchemyView();
+      return true;
+    },
+    usePill: (pillId, inBattle = false) => {
+      const pillConfig = ALCHEMY_CONFIG.find(p => p.id === pillId);
+      if (!pillConfig || Game.player.alchemyData.pills[pillId] <= 0) {
+        Game.log.addLog('使用失敗：丹藥數量不足', 'danger');
+        return false;
+      }
+      const battle = Game.battle.currentBattle;
+      if (inBattle && (!battle || battle.isEnd)) {
+        Game.log.addLog('使用失敗：當前不在戰鬥中', 'danger');
+        return false;
+      }
+      // 扣除丹藥
+      Game.player.alchemyData.pills[pillId] -= 1;
+      // 執行效果
+      if (pillConfig.type === 'heal' && inBattle) {
+        const healValue = Math.floor(battle.player.maxHp * pillConfig.effect.hpPercent);
+        battle.player.currentHp = Math.min(battle.player.maxHp, battle.player.currentHp + healValue);
+        Game.battle.addBattleLog(`你使用了【${pillConfig.name}】，恢復了${GameUtils.formatNumber(healValue)}點生命值！`, 'player');
+      }
+      if (pillConfig.type === 'mp' && inBattle) {
+        const mpValue = Math.floor(battle.player.maxMp * pillConfig.effect.mpPercent);
+        battle.player.currentMp = Math.min(battle.player.maxMp, battle.player.currentMp + mpValue);
+        Game.battle.addBattleLog(`你使用了【${pillConfig.name}】，恢復了${GameUtils.formatNumber(mpValue)}點魔法值！`, 'player');
+      }
+      if (pillConfig.type === 'buff' && inBattle) {
+        Game.player.skillData.buffs[pillId] = {
+          ...pillConfig.effect,
+          roundLeft: pillConfig.effect.round,
+          type: pillId,
+        };
+        Game.battle.addBattleLog(`你使用了【${pillConfig.name}】，獲得了強力增益效果！`, 'player');
+      }
+      // 非戰鬥使用回血回藍
+      if (pillConfig.type === 'heal' && !inBattle) {
+        const healValue = Math.floor(Game.player.finalAttr[ATTR_TYPE.MAX_HP] * pillConfig.effect.hpPercent);
+        Game.battle.currentBattle.player.currentHp = Math.min(Game.player.finalAttr[ATTR_TYPE.MAX_HP], Game.battle.currentBattle.player.currentHp + healValue);
+        Game.log.addLog(`使用了【${pillConfig.name}】，恢復了${GameUtils.formatNumber(healValue)}點生命值！`, 'success');
+      }
+      if (pillConfig.type === 'mp' && !inBattle) {
+        const mpValue = Math.floor(Game.player.finalAttr[ATTR_TYPE.MAX_MP] * pillConfig.effect.mpPercent);
+        Game.battle.currentBattle.player.currentMp = Math.min(Game.player.finalAttr[ATTR_TYPE.MAX_MP], Game.battle.currentBattle.player.currentMp + mpValue);
+        Game.log.addLog(`使用了【${pillConfig.name}】，恢復了${GameUtils.formatNumber(mpValue)}點魔法值！`, 'success');
+      }
+      Game.render.renderBattleView();
+      Game.render.renderAlchemyView();
+      return true;
+    },
+  },
+
+  // 奇遇系統模塊
+  adventure: {
+    currentEvent: null,
+    triggerAdventure: () => {
+      if (!GameUtils.isProbabilityHit(ENCHANT_CONFIG.triggerRate * 100)) return false;
+      // 隨機抽取奇遇事件
+      const randomIndex = GameUtils.getRandomInt(0, ADVENTURE_CONFIG.length - 1);
+      Game.adventure.currentEvent = ADVENTURE_CONFIG[randomIndex];
+      // 顯示奇遇彈窗
+      document.getElementById('adventureModal').classList.add('active');
+      Game.adventure.renderAdventureModal();
+      return true;
+    },
+    renderAdventureModal: () => {
+      const event = Game.adventure.currentEvent;
+      document.getElementById('adventureTitle').textContent = event.title;
+      document.getElementById('adventureDesc').textContent = event.desc;
+      // 獎勵顯示
+      let rewardHtml = '';
+      if (event.type === 'reward') {
+        rewardHtml = '<h4>獲得獎勵：</h4><div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;">';
+        for (const [itemName, count] of Object.entries(event.reward)) {
+          rewardHtml += `<div>${itemName} x${count}</div>`;
+        }
+        rewardHtml += '</div>';
+      }
+      document.getElementById('adventureReward').innerHTML = rewardHtml;
+      // 按鈕
+      document.getElementById('adventureActionBtns').innerHTML = `
+        <button class="btn btn-primary btn-lg" id="adventureConfirmBtn">確認</button>
+      `;
+      document.getElementById('adventureConfirmBtn').addEventListener('click', Game.adventure.confirmAdventure);
+    },
+    confirmAdventure: () => {
+      const event = Game.adventure.currentEvent;
+      if (!event) return;
+      // 發放獎勵
+      if (event.type === 'reward') {
+        for (const [itemName, count] of Object.entries(event.reward)) {
+          if (itemName === 'exp') {
+            Game.level.addExp(count);
+          } else if (itemName === 'diamond') {
+            Game.player.diamond += count;
+          } else if (itemName === 'gold') {
+            Game.player.gold += count;
+          } else if (itemName === '全屬性增幅') {
+            for (const attrKey in ATTR_TYPE) {
+              Game.player.finalAttr[attrKey] *= (1 + count);
+            }
+            Game.log.addLog('全屬性永久提升！', 'success');
+          } else {
+            const existing = Game.player.backpack.find(i => i.name === itemName);
+            if (existing) existing.count = (existing.count || 1) + count;
+            else Game.backpack.addItem({ id: GameUtils.generateUniqueId(), name: itemName, type: ITEM_TYPE.MATERIAL, count: count });
+          }
+        }
+      }
+      document.getElementById('adventureModal').classList.remove('active');
+      Game.adventure.currentEvent = null;
+      Game.render.renderPlayerInfo();
+    },
+  },
+
+  // 裝備附魔系統模塊
+  enchant: {
+    initData: () => {
+      // 補全裝備附魔屬性
+      [...Object.values(Game.player.equipment).filter(e => e), ...Game.player.backpack.filter(i => i.type === ITEM_TYPE.EQUIPMENT)].forEach(equip => {
+        if (equip.enchantAttrs === undefined) equip.enchantAttrs = {};
+        if (equip.enchantLevel === undefined) equip.enchantLevel = 0;
+      });
+    },
+    getEnchantCost: (equip) => {
+      const baseCost = ENCHANT_CONFIG.baseCost;
+      const cost = {};
+      for (const [itemName, baseCount] of Object.entries(baseCost)) {
+        cost[itemName] = baseCount * (equip.enchantLevel + 1);
+      }
+      return cost;
+    },
+    doEnchant: (equip, isWorn = false) => {
+      const cost = Game.enchant.getEnchantCost(equip);
+      // 檢查材料
+      for (const [itemName, needCount] of Object.entries(cost)) {
+        const material = Game.player.backpack.find(i => i.name === itemName);
+        if (!material || (material.count || 1) < needCount) {
+          Game.log.addLog(`附魔失敗：需要${itemName} x${needCount}`, 'danger');
+          return false;
+        }
+      }
+      // 扣除材料
+      for (const [itemName, needCount] of Object.entries(cost)) {
+        const material = Game.player.backpack.find(i => i.name === itemName);
+        material.count -= needCount;
+        if (material.count <= 0) Game.backpack.removeItem(material.id);
+      }
+      // 提升附魔等級
+      equip.enchantLevel += 1;
+      // 生成附魔屬性
+      const attrCount = Math.min(ENCHANT_CONFIG.maxAttrCount, Math.floor(equip.enchantLevel / 3) + 1);
+      const newAttrs = {};
+      const tempAttrPool = [...ENCHANT_CONFIG.attrPool];
+      for (let i = 0; i < attrCount; i++) {
+        if (tempAttrPool.length === 0) break;
+        const randomIndex = GameUtils.getRandomInt(0, tempAttrPool.length - 1);
+        const attrConfig = tempAttrPool.splice(randomIndex, 1)[0];
+        const levelMulti = 1 + (equip.enchantLevel - 1) * 0.2;
+        const value = attrConfig.baseValue * levelMulti * (0.8 + Math.random() * 0.4);
+        newAttrs[attrConfig.key] = value;
+      }
+      equip.enchantAttrs = newAttrs;
+      Game.equipment.calculateEquipAttr();
+      Game.log.addLog(`附魔成功！${equip.name} 附魔等級提升至 +${equip.enchantLevel}`, 'success');
+      Game.render.renderEnchantView();
+      Game.modal.renderEquipDetailModal(equip, isWorn);
+      return true;
+    },
+    getEquipEnchantAttr: (equip) => {
+      return equip.enchantAttrs || {};
+    },
+  },
+
+  // 攻略系統模塊
+  guide: {
+    toggleCollapse: (id) => {
+      const contentEl = document.getElementById(`guide-content-${id}`);
+      contentEl.classList.toggle('active');
+    },
+    renderGuideView: () => {
+      const guideView = document.getElementById('guideView');
+      guideView.innerHTML = `
+        <div class="card">
+          <h2 class="card-title">遊戲攻略幫助</h2>
+          <div>
+            ${GUIDE_CONFIG.map(guide => `
+              <div class="guide-collapse-item">
+                <div class="guide-collapse-header" id="guide-header-${guide.id}">
+                  <span>${guide.title}</span>
+                  <span>▼</span>
+                </div>
+                <div class="guide-collapse-content" id="guide-content-${guide.id}">
+                  ${guide.content}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+      // 折疊面板事件
+      GUIDE_CONFIG.forEach(guide => {
+        document.getElementById(`guide-header-${guide.id}`).addEventListener('click', () => Game.guide.toggleCollapse(guide.id));
+      });
+    },
+  },
+
+  // 擴展渲染模塊
+  render: Object.assign(Game.render, {
+    renderTalentView: () => {
+      const talentView = document.getElementById('talentView');
+      Game.talent.initData();
+      const { talentPoint } = Game.player.talentData;
+      talentView.innerHTML = `
+        <div class="card">
+          <div class="backpack-header">
+            <h2 class="card-title" style="margin: 0;">天賦系統</h2>
+            <span>當前天賦點：<span style="color: var(--warning-color); font-weight: bold;">${talentPoint}</span></span>
+          </div>
+          <div style="margin-bottom: 1rem; color: #AAAAAA;">轉生可獲得天賦點，天賦提供的屬性永久生效</div>
+          <div class="talent-tree-grid">
+            ${Object.entries(TALENT_CONFIG).map(([branchKey, branchConfig]) => {
+              const isUnlocked = branchConfig.unlockRebirthLevel <= Game.player.rebirthData.rebirthLevel;
+              return `
+                <div class="talent-branch-card" style="${!isUnlocked ? 'opacity: 0.5; pointer-events: none;' : ''}">
+                  <div class="talent-branch-title">${branchConfig.name} ${!isUnlocked ? `(需${branchConfig.unlockRebirthLevel}轉解鎖)` : ''}</div>
+                  <div class="talent-node-grid">
+                    ${branchConfig.talents.map(talent => {
+                      const talentData = Game.player.talentData.talents[talent.id];
+                      const isMaxLevel = talentData.level >= talent.maxLevel;
+                      const canLevelUp = !isMaxLevel && talentPoint >= talent.costPerLevel && 
+                        (!talent.unlockRebirth || talent.unlockRebirth <= Game.player.rebirthData.rebirthLevel) &&
+                        (!talent.unlockLevel || talentData.level >= talent.unlockLevel - 1);
+                      return `
+                        <div class="talent-node-card ${isMaxLevel ? 'unlocked' : canLevelUp ? 'available' : ''}">
+                          <h4 style="margin-bottom: 0.3rem;">${talent.name}</h4>
+                          <div style="font-size: 0.8rem; margin-bottom: 0.3rem;">Lv.${talentData.level}/${talent.maxLevel}</div>
+                          <div style="font-size: 0.7rem; color: #AAAAAA; margin-bottom: 0.8rem;">${talent.desc}</div>
+                          <button class="btn btn-sm btn-primary" style="width: 100%;" ${!canLevelUp ? 'disabled' : ''} id="talent-up-${talent.id}-${branchKey}">
+                            ${isMaxLevel ? '已滿級' : `升級 (${talent.costPerLevel}點)`}
+                          </button>
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+      // 天賦升級事件
+      for (const branchKey in TALENT_CONFIG) {
+        TALENT_CONFIG[branchKey].talents.forEach(talent => {
+          const btn = document.getElementById(`talent-up-${talent.id}-${branchKey}`);
+          if (btn) btn.addEventListener('click', () => Game.talent.levelUpTalent(talent.id, branchKey));
+        });
+      }
+    },
+    renderAlchemyView: () => {
+      const alchemyView = document.getElementById('alchemyView');
+      Game.alchemy.initData();
+      const { level, pills } = Game.player.alchemyData;
+      alchemyView.innerHTML = `
+        <div class="card">
+          <div class="backpack-header">
+            <h2 class="card-title" style="margin: 0;">煉丹系統</h2>
+            <span>煉丹等級：Lv.${level}</span>
+          </div>
+          <div class="alchemy-grid">
+            <div>
+              <h3 class="card-title">丹藥配方</h3>
+              <div class="alchemy-formula-list">
+                ${ALCHEMY_CONFIG.map(pill => {
+                  const canMake = Game.alchemy.canAlchemy(pill.id);
+                  const materialText = Object.entries(pill.material).map(([name, count]) => `${name}x${count}`).join('、');
+                  return `
+                    <div class="alchemy-formula-card">
+                      <div>
+                        <h4 style="margin-bottom: 0.3rem;">${pill.name}</h4>
+                        <p style="font-size: 0.8rem; color: #AAAAAA;">${pill.desc}</p>
+                        <p style="font-size: 0.8rem;">材料：${materialText}</p>
+                        <p style="font-size: 0.8rem;">當前擁有：${pills[pill.id] || 0}</p>
+                      </div>
+                      <button class="btn btn-primary" id="alchemy-make-1-${pill.id}" ${!canMake ? 'disabled' : ''}>煉製1個</button>
+                      <button class="btn btn-primary" id="alchemy-make-10-${pill.id}" ${!canMake ? 'disabled' : ''}>煉製10個</button>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+            <div>
+              <div class="card">
+                <h3 class="card-title">我的丹藥</h3>
+                <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                  ${ALCHEMY_CONFIG.map(pill => {
+                    const count = pills[pill.id] || 0;
+                    return `
+                      <div class="goods-card" style="margin: 0;">
+                        <div class="goods-name">${pill.name}</div>
+                        <div class="goods-desc">${pill.desc}</div>
+                        <div class="goods-desc">當前擁有：${count}</div>
+                        <button class="btn btn-outline" style="width: 100%;" ${count <= 0 ? 'disabled' : ''} id="pill-use-${pill.id}">使用</button>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      // 煉製按鈕事件
+      ALCHEMY_CONFIG.forEach(pill => {
+        document.getElementById(`alchemy-make-1-${pill.id}`)?.addEventListener('click', () => Game.alchemy.doAlchemy(pill.id, 1));
+        document.getElementById(`alchemy-make-10-${pill.id}`)?.addEventListener('click', () => Game.alchemy.doAlchemy(pill.id, 10));
+        document.getElementById(`pill-use-${pill.id}`)?.addEventListener('click', () => Game.alchemy.usePill(pill.id, false));
+      });
+    },
+    renderEnchantView: () => {
+      const enchantView = document.getElementById('enchantView');
+      Game.enchant.initData();
+      const equipList = [...Object.values(Game.player.equipment).filter(e => e), ...Game.player.backpack.filter(i => i.type === ITEM_TYPE.EQUIPMENT)];
+      enchantView.innerHTML = `
+        <div class="card">
+          <h2 class="card-title">裝備附魔</h2>
+          <div style="margin-bottom: 1rem; color: #AAAAAA;">附魔可為裝備附加額外的隨機屬性，附魔等級越高，屬性越多、數值越高</div>
+          <div class="attr-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+            ${equipList.map(equip => {
+              const isWorn = Object.values(Game.player.equipment).includes(equip);
+              const cost = Game.enchant.getEnchantCost(equip);
+              const enchantAttrs = Game.enchant.getEquipEnchantAttr(equip);
+              return `
+                <div class="card" style="margin: 0;">
+                  <h3 style="color: ${EQUIP_QUALITY_CONFIG[equip.quality].color}; margin-bottom: 0.5rem;">${equip.name} ${isWorn ? '[已穿戴]' : ''}</h3>
+                  <div class="detail-row" style="padding: 0.2rem 0;">
+                    <span>附魔等級</span>
+                    <span style="color: var(--warning-color);">+${equip.enchantLevel}</span>
+                  </div>
+                  <div class="detail-row" style="padding: 0.2rem 0;">
+                    <span>附魔消耗</span>
+                    <span>${Object.entries(cost).map(([name, count]) => `${name}x${count}`).join('、')}</span>
+                  </div>
+                  <div style="margin: 0.5rem 0;">
+                    <h4 style="margin-bottom: 0.3rem;">附魔屬性</h4>
+                    ${Object.keys(enchantAttrs).length > 0 ? Object.keys(enchantAttrs).map(attrKey => `
+                      <div class="enchant-attr-item">
+                        <span>${ATTR_NAME_MAP[attrKey]}</span>
+                        <span>${GameUtils.formatAttributeValue(attrKey, enchantAttrs[attrKey])}</span>
+                      </div>
+                    `).join('') : '<div style="color: #AAAAAA; font-size: 0.8rem;">暫無附魔屬性</div>'}
+                  </div>
+                  <button class="btn btn-primary" style="width: 100%;" id="enchant-btn-${equip.id}">
+                    開始附魔
+                  </button>
+                </div>
+              `;
+            }).join('')}
+            ${equipList.length === 0 ? '<div style="grid-column: 1/-1; text-align: center; color: #AAAAAA; padding: 2rem;">暫無可附魔的裝備</div>' : ''}
+          </div>
+        </div>
+      `;
+      // 附魔按鈕事件
+      equipList.forEach(equip => {
+        const btn = document.getElementById(`enchant-btn-${equip.id}`);
+        if (btn) btn.addEventListener('click', () => {
+          const isWorn = Object.values(Game.player.equipment).includes(equip);
+          Game.enchant.doEnchant(equip, isWorn);
+        });
+      });
+    },
+  }),
+});
+
+// 擴展導航欄，新增按鈕
+window.addEventListener('load', () => {
+  const mainNav = document.getElementById('mainNav');
+  const navList = [
+    { id: 'talent', name: '天賦' },
+    { id: 'alchemy', name: '煉丹' },
+    { id: 'enchant', name: '附魔' },
+    { id: 'guide', name: '攻略' },
+  ];
+  navList.forEach(nav => {
+    if (!document.querySelector(`.nav-btn[data-view="${nav.id}"]`)) {
+      const btn = document.createElement('button');
+      btn.className = 'nav-btn';
+      btn.dataset.view = nav.id;
+      btn.textContent = nav.name;
+      mainNav.insertBefore(btn, document.getElementById('saveManageBtn'));
+      btn.addEventListener('click', () => Game.render.switchView(nav.id));
+    }
+  });
+  // 初始化數據
+  Game.talent.initData();
+  Game.alchemy.initData();
+  Game.enchant.initData();
+});
+
+// 擴展視圖切換邏輯
+const originalViewSwitch = Game.render.switchView;
+Game.render.switchView = (viewName) => {
+  originalViewSwitch(viewName);
+  if (viewName === 'talent') Game.render.renderTalentView();
+  if (viewName === 'alchemy') Game.render.renderAlchemyView();
+  if (viewName === 'enchant') Game.render.renderEnchantView();
+  if (viewName === 'guide') Game.guide.renderGuideView();
+};
+
+// 擴展屬性計算邏輯，新增天賦、附魔加成
+const originalAttrCalculate = Game.attribute.calculateFinalAttr;
+Game.attribute.calculateFinalAttr = () => {
+  originalAttrCalculate();
+  // 天賦屬性加成
+  const talentAttr = Game.talent.getTalentTotalAttr();
+  for (const key in talentAttr) {
+    if (key === ATTR_TYPE.ALL_ATTR_MULTIPLIER) {
+      for (const attrKey in ATTR_TYPE) Game.player.finalAttr[attrKey] *= (1 + talentAttr[key]);
+    } else {
+      Game.player.finalAttr[key] = (Game.player.finalAttr[key] || 0) + talentAttr[key];
+    }
+  }
+  // 裝備附魔屬性加成
+  for (const slot in Game.player.equipment) {
+    const equip = Game.player.equipment[slot];
+    if (!equip) continue;
+    const enchantAttrs = Game.enchant.getEquipEnchantAttr(equip);
+    for (const key in enchantAttrs) {
+      Game.player.finalAttr[key] = (Game.player.finalAttr[key] || 0) + enchantAttrs[key];
+    }
+  }
+  // 丹藥buff加成
+  const buffs = Game.player.skillData.buffs;
+  if (buffs.attack_pill) Game.player.finalAttr[ATTR_TYPE.PHYSICAL_ATTACK] *= (1 + buffs.attack_pill.attackMulti);
+  if (buffs.attack_pill) Game.player.finalAttr[ATTR_TYPE.MAGIC_ATTACK] *= (1 + buffs.attack_pill.attackMulti);
+  if (buffs.defense_pill) Game.player.finalAttr[ATTR_TYPE.PHYSICAL_DEFENSE] *= (1 + buffs.defense_pill.defenseMulti);
+  if (buffs.defense_pill) Game.player.finalAttr[ATTR_TYPE.MAGIC_DEFENSE] *= (1 + buffs.defense_pill.defenseMulti);
+  if (buffs.crit_pill) Game.player.finalAttr[ATTR_TYPE.CRIT_RATE] += buffs.crit_pill.critRate;
+};
+
+// 擴展轉生邏輯，新增天賦點獎勵
+const originalRebirth = Game.rebirth.doRebirth;
+Game.rebirth.doRebirth = () => {
+  const oldRebirthLevel = Game.player.rebirthData.rebirthLevel;
+  const result = originalRebirth();
+  if (result) {
+    // 轉生獎勵天賦點
+    const addPoint = Game.player.rebirthData.rebirthLevel - oldRebirthLevel;
+    Game.talent.addTalentPoint(addPoint * 5);
+  }
+  return result;
+};
+
+// 擴展戰鬥界面，新增丹藥使用按鈕
+const originalBattleRender = Game.render.renderBattleView;
+Game.render.renderBattleView = () => {
+  originalBattleRender();
+  const battleView = document.getElementById('battleView');
+  const skillContainer = document.getElementById('skillActionContainer');
+  if (skillContainer && !document.getElementById('pillActionContainer')) {
+    const pillContainer = document.createElement('div');
+    pillContainer.id = 'pillActionContainer';
+    pillContainer.style.marginTop = '0.5rem';
+    pillContainer.innerHTML = `
+      <h4 style="margin-bottom: 0.5rem;">丹藥使用</h4>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        ${ALCHEMY_CONFIG.filter(p => p.type !== 'buff' || p.type === 'buff').map(pill => {
+          const count = Game.player.alchemyData.pills[pill.id] || 0;
+          const canUse = Game.alchemy.canUsePill(pill.id, true);
+          return `
+            <button class="btn btn-sm ${canUse ? 'btn-success' : 'btn-outline'}" id="battle-pill-${pill.id}" ${!canUse ? 'disabled' : ''} style="flex: 1; min-width: 80px;">
+              ${pill.name} (${count})
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `;
+    skillContainer.parentNode.insertBefore(pillContainer, skillContainer.nextSibling);
+    // 丹藥使用事件
+    ALCHEMY_CONFIG.forEach(pill => {
+      const btn = document.getElementById(`battle-pill-${pill.id}`);
+      if (btn) btn.addEventListener('click', () => Game.alchemy.usePill(pill.id, true));
+    });
+  }
+};
+
+// 擴展戰鬥結束邏輯，觸發奇遇
+const originalBattleEnd = Game.battle.checkBattleEnd;
+Game.battle.checkBattleEnd = () => {
+  const battle = Game.battle.currentBattle;
+  const isEnd = originalBattleEnd();
+  if (isEnd && battle?.isWin && !battle.isPvp && !battle.isWorldBoss && !battle.isTower && !battle.isDungeon) {
+    // 戰鬥勝利後觸發奇遇
+    setTimeout(() => Game.adventure.triggerAdventure(), 300);
+  }
+  return isEnd;
+};
+
+// 擴展怪物掉落，新增煉丹材料
+const originalDropGenerate = Game.drop.generateDrop;
+Game.drop.generateDrop = (monster, stageLevel) => {
+  const rewards = originalDropGenerate(monster, stageLevel);
+  // 概率掉落煉丹材料
+  const materialList = ['靈草', '毒囊', '堅硬外殼', '尖牙', '百年靈芝'];
+  materialList.forEach(materialName => {
+    if (GameUtils.isProbabilityHit(20)) {
+      rewards.items.push({
+        id: GameUtils.generateUniqueId(),
+        name: materialName,
+        type: ITEM_TYPE.MATERIAL,
+        count: GameUtils.getRandomInt(1, 3),
+        desc: '煉丹專用材料',
+      });
+    }
+  });
+  // 概率掉落附魔石
+  if (GameUtils.isProbabilityHit(10)) {
+    rewards.items.push({
+      id: GameUtils.generateUniqueId(),
+      name: '附魔石',
+      type: ITEM_TYPE.MATERIAL,
+      count: GameUtils.getRandomInt(1, 2),
+      desc: '裝備附魔專用材料',
+    });
+  }
+  return rewards;
+};
+
+// 擴展存檔加載邏輯，初始化新增數據
+const originalLoadGame = Game.save.loadGame;
+Game.save.loadGame = () => {
+  const result = originalLoadGame();
+  Game.talent.initData();
+  Game.alchemy.initData();
+  Game.enchant.initData();
+  return result;
+};
+
+// 奇遇彈窗關閉事件
+document.getElementById('adventureModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('adventureModal')) document.getElementById('adventureModal').classList.remove('active');
+});
+
+// 測試方法：添加天賦點、煉丹材料、附魔石
+window.addTalentAndAlchemyItem = () => {
+  Game.talent.addTalentPoint(100);
+  const materials = [
+    { name: '靈草', count: 1000 },
+    { name: '毒囊', count: 500 },
+    { name: '堅硬外殼', count: 500 },
+    { name: '尖牙', count: 500 },
+    { name: '百年靈芝', count: 100 },
+    { name: '附魔石', count: 1000 },
+  ];
+  materials.forEach(material => {
+    const existing = Game.player.backpack.find(i => i.name === material.name);
+    if (existing) existing.count += material.count;
+    else Game.backpack.addItem({ id: GameUtils.generateUniqueId(), name: material.name, type: ITEM_TYPE.MATERIAL, count: material.count });
+  });
+  Game.log.addLog('已添加天賦點、煉丹材料、附魔石', 'success');
+  Game.render.renderTalentView();
+  Game.render.renderAlchemyView();
+  Game.render.renderEnchantView();
+};
+</script>
 </body>
 </html>
