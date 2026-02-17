@@ -6810,5 +6810,1781 @@ Game.save.loadGame = () => {
 // 14. 配套系統（郵件、每日任務、成就、倉庫、榮譽商店、設置、新手引導）
 // 所有系統完全聯動，數據自動存檔，完整可持續遊玩，無任何功能遺漏
 </script>
+<style>
+/* 第十部分：進階玩法專用樣式 - 完全兼容原有主題變量 */
+.fight-power-display {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--warning-color);
+  text-align: center;
+  margin: 0.5rem 0;
+  text-shadow: 0 0 8px var(--warning-color);
+}
+.bag-category-nav {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.bag-category-btn {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+}
+.sign-in-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.8rem;
+  margin: 1.5rem 0;
+}
+.sign-in-item {
+  aspect-ratio: 1/1;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: rgba(0,0,0,0.3);
+}
+.sign-in-item.claimed {
+  border-color: var(--success-color);
+  opacity: 0.7;
+}
+.sign-in-item.today {
+  border-color: var(--warning-color);
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.4);
+}
+.world-boss-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.boss-refresh-tip {
+  color: var(--warning-color);
+  text-align: center;
+  font-weight: bold;
+  margin: 1rem 0;
+}
+.inherit-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 50px 1fr;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  align-items: center;
+}
+.inherit-arrow {
+  text-align: center;
+  font-size: 1.5rem;
+  color: var(--primary-color);
+}
+.difficulty-selector {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.difficulty-btn {
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  border: 2px solid var(--border-color);
+  background: rgba(0,0,0,0.3);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.difficulty-btn.active {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+  font-weight: bold;
+}
+.difficulty-btn.difficulty-hard {
+  border-color: var(--warning-color);
+}
+.difficulty-btn.difficulty-hell {
+  border-color: var(--danger-color);
+}
+</style>
+
+<!-- 第十部分：新增界面容器 -->
+<div id="signInView" class="view-container"></div>
+<div id="worldBossView" class="view-container"></div>
+<div id="inheritView" class="view-container"></div>
+
+<!-- 第十部分：裝備繼承彈窗 -->
+<div id="inheritModal" class="modal-overlay">
+  <div class="equip-detail-modal" style="max-width: 700px;">
+    <div class="modal-header">
+      <h3 class="modal-title">裝備繼承</h3>
+      <button class="modal-close-btn" id="inheritModalCloseBtn">&times;</button>
+    </div>
+    <div id="inheritModalContent" class="equip-detail-info"></div>
+    <div class="modal-action-btns" id="inheritModalActionBtns"></div>
+  </div>
+</div>
+
+<script>
+// ==================== 第十部分：遊戲體驗優化與進階玩法擴展 ====================
+// 完全兼容原有核心框架，無侵入式修改，僅新增擴展功能
+const DIFFICULTY_CONFIG = {
+  normal: { name: '普通', attrMultiplier: 1.0, dropMultiplier: 1.0, expMultiplier: 1.0 },
+  hard: { name: '困難', attrMultiplier: 2.0, dropMultiplier: 2.0, expMultiplier: 1.8 },
+  hell: { name: '地獄', attrMultiplier: 4.0, dropMultiplier: 4.0, expMultiplier: 3.0 },
+};
+
+const SIGN_IN_CONFIG = [
+  { day: 1, reward: { diamond: 50, 強化石: 20 } },
+  { day: 2, reward: { diamond: 60, 金幣: 50000 } },
+  { day: 3, reward: { diamond: 80, 寶石合成符: 5 } },
+  { day: 4, reward: { diamond: 100, 洗練石: 10 } },
+  { day: 5, reward: { diamond: 120, 3級隨機寶石: 1 } },
+  { day: 6, reward: { diamond: 150, 資質丹: 5 } },
+  { day: 7, reward: { diamond: 300, 史詩裝備藍圖: 1, 4級隨機寶石: 1 } },
+];
+
+const WORLD_BOSS_CONFIG = {
+  refreshInterval: 3600000, // 1小時刷新一次
+  baseLevel: 50,
+  baseHpMultiplier: 20,
+  baseAttackMultiplier: 5,
+  dropMinQuality: EQUIP_QUALITY.EPIC,
+  dropMaxQuality: EQUIP_QUALITY.SUPREME,
+  dropRate: 80,
+};
+
+Object.assign(Game, {
+  // 戰鬥力系統模塊
+  fightPower: {
+    calculateFightPower: () => {
+      const attr = Game.player.finalAttr;
+      // 戰鬥力換算公式：攻防血基礎值 + 暴擊命中閃避額外加成
+      let power = 0;
+      power += attr[ATTR_TYPE.PHYSICAL_ATTACK] * 1.2;
+      power += attr[ATTR_TYPE.MAGIC_ATTACK] * 1.2;
+      power += attr[ATTR_TYPE.PHYSICAL_DEFENSE] * 0.8;
+      power += attr[ATTR_TYPE.MAGIC_DEFENSE] * 0.8;
+      power += attr[ATTR_TYPE.MAX_HP] * 0.2;
+      power += attr[ATTR_TYPE.HIT] * 2;
+      power += attr[ATTR_TYPE.DODGE] * 2;
+      power += attr[ATTR_TYPE.CRIT_RATE] * 5;
+      power += attr[ATTR_TYPE.CRIT_DAMAGE] * 3;
+      power += attr[ATTR_TYPE.CRIT_DEFENSE] * 2;
+      // 額外加成：強化、寶石、銘刻、雕文、資質、精通
+      const equipCount = Object.values(Game.player.equipment).filter(e => e).length;
+      power += equipCount * 100;
+      return Math.floor(power);
+    },
+    getEquipFightPower: (equip) => {
+      const allAttrs = Game.equipment.getEquipAllAttrs(equip);
+      let power = 0;
+      for (const attrKey in allAttrs) {
+        if (attrKey === ATTR_TYPE.PHYSICAL_ATTACK || attrKey === ATTR_TYPE.MAGIC_ATTACK) power += allAttrs[attrKey] * 1.2;
+        else if (attrKey === ATTR_TYPE.PHYSICAL_DEFENSE || attrKey === ATTR_TYPE.MAGIC_DEFENSE) power += allAttrs[attrKey] * 0.8;
+        else if (attrKey === ATTR_TYPE.MAX_HP) power += allAttrs[attrKey] * 0.2;
+        else power += allAttrs[attrKey] * 2;
+      }
+      power += equip.enhanceLevel * 50;
+      power += equip.star * 100;
+      return Math.floor(power);
+    },
+  },
+
+  // 遊戲難度系統模塊
+  difficulty: {
+    current: 'normal',
+    initData: () => {
+      if (Game.player.difficulty === undefined) {
+        Game.player.difficulty = 'normal';
+      }
+      Game.difficulty.current = Game.player.difficulty;
+    },
+    changeDifficulty: (difficulty) => {
+      if (!DIFFICULTY_CONFIG[difficulty]) {
+        Game.log.addLog('難度切換失敗：難度不存在', 'danger');
+        return false;
+      }
+      Game.player.difficulty = difficulty;
+      Game.difficulty.current = difficulty;
+      Game.log.addLog(`已切換至${DIFFICULTY_CONFIG[difficulty].name}難度`, 'success');
+      Game.render.renderSettingView();
+      return true;
+    },
+    getCurrentConfig: () => DIFFICULTY_CONFIG[Game.difficulty.current],
+  },
+
+  // 每日簽到系統模塊
+  signIn: {
+    initData: () => {
+      if (!Game.player.signInData) {
+        Game.player.signInData = {
+          signedDays: 0,
+          lastSignInTime: 0,
+          totalSigned: 0,
+        };
+      }
+      Game.signIn.checkSignInReset();
+    },
+    checkSignInReset: () => {
+      const now = Date.now();
+      const oneDay = 86400000;
+      const lastSignDay = new Date(Game.player.signInData.lastSignInTime).toDateString();
+      const today = new Date(now).toDateString();
+      if (lastSignDay !== today) {
+        // 跨天重置當日簽到狀態
+        Game.player.signInData.signedToday = false;
+      }
+    },
+    canSignIn: () => {
+      Game.signIn.initData();
+      return !Game.player.signInData.signedToday;
+    },
+    doSignIn: () => {
+      if (!Game.signIn.canSignIn()) {
+        Game.log.addLog('今日已簽到，請明日再來', 'warning');
+        return false;
+      }
+      const now = Date.now();
+      Game.player.signInData.signedToday = true;
+      Game.player.signInData.lastSignInTime = now;
+      Game.player.signInData.signedDays = (Game.player.signInData.signedDays % 7) + 1;
+      Game.player.signInData.totalSigned += 1;
+      // 發放獎勵
+      const dayConfig = SIGN_IN_CONFIG[Game.player.signInData.signedDays - 1];
+      for (const [itemName, count] of Object.entries(dayConfig.reward)) {
+        if (itemName === 'diamond' || itemName === '元寶') {
+          Game.player.diamond += count;
+        } else if (itemName === 'gold' || itemName === '金幣') {
+          Game.player.gold += count;
+        } else if (itemName.includes('隨機寶石')) {
+          const level = parseInt(itemName.match(/\d+/)[0]);
+          const gemTypes = Object.values(GEM_TYPE);
+          const randomType = gemTypes[GameUtils.getRandomInt(0, gemTypes.length - 1)];
+          Game.backpack.addItem(Game.gem.generateGem(randomType, level));
+        } else if (itemName.includes('藍圖')) {
+          const blueprint = FORGE_BLUEPRINT_CONFIG.find(b => b.name === itemName);
+          Game.backpack.addItem({ id: GameUtils.generateUniqueId(), name: itemName, type: ITEM_TYPE.BLUEPRINT, blueprintId: blueprint.id, desc: blueprint.desc });
+        } else {
+          const existing = Game.player.backpack.find(i => i.name === itemName);
+          if (existing) existing.count = (existing.count || 1) + count;
+          else Game.backpack.addItem({ id: GameUtils.generateUniqueId(), name: itemName, type: ITEM_TYPE.MATERIAL, count: count });
+        }
+      }
+      Game.log.addLog(`簽到成功！獲得第${Game.player.signInData.signedDays}天獎勵`, 'success');
+      Game.render.renderPlayerInfo();
+      Game.render.renderSignInView();
+      Game.render.updateSignInTip();
+      return true;
+    },
+  },
+
+  // 世界BOSS系統模塊
+  worldBoss: {
+    initData: () => {
+      if (!Game.player.worldBossData) {
+        Game.player.worldBossData = {
+          lastKillTime: 0,
+          totalKillCount: 0,
+        };
+      }
+    },
+    isAlive: () => {
+      Game.worldBoss.initData();
+      const now = Date.now();
+      return now - Game.player.worldBossData.lastKillTime >= WORLD_BOSS_CONFIG.refreshInterval;
+    },
+    getRefreshTime: () => {
+      const nextRefreshTime = Game.player.worldBossData.lastKillTime + WORLD_BOSS_CONFIG.refreshInterval;
+      return Math.max(0, Math.floor((nextRefreshTime - Date.now()) / 1000));
+    },
+    generateBoss: () => {
+      if (!Game.worldBoss.isAlive()) return null;
+      const playerLevel = Game.player.level;
+      const bossLevel = Math.max(WORLD_BOSS_CONFIG.baseLevel, playerLevel);
+      const boss = Game.monster.generateMonster(bossLevel, MONSTER_QUALITY.BOSS);
+      boss.name = '世界BOSS·' + boss.name;
+      boss.attrs[ATTR_TYPE.MAX_HP] *= WORLD_BOSS_CONFIG.baseHpMultiplier;
+      boss.attrs[ATTR_TYPE.PHYSICAL_ATTACK] *= WORLD_BOSS_CONFIG.baseAttackMultiplier;
+      boss.attrs[ATTR_TYPE.MAGIC_ATTACK] *= WORLD_BOSS_CONFIG.baseAttackMultiplier;
+      boss.currentHp = boss.attrs[ATTR_TYPE.MAX_HP];
+      boss.isWorldBoss = true;
+      return boss;
+    },
+    startBattle: () => {
+      if (!Game.worldBoss.isAlive()) {
+        Game.log.addLog('世界BOSS已被擊殺，請等待刷新', 'warning');
+        return false;
+      }
+      if (Game.state.isInBattle) {
+        Game.log.addLog('當前已有戰鬥進行中', 'warning');
+        return false;
+      }
+      const boss = Game.worldBoss.generateBoss();
+      if (!boss) return false;
+      Game.battle.currentBattle = {
+        isWorldBoss: true,
+        monster: boss,
+        player: {
+          currentHp: Game.player.finalAttr[ATTR_TYPE.MAX_HP],
+          currentMp: Game.player.finalAttr[ATTR_TYPE.MAX_MP],
+          maxHp: Game.player.finalAttr[ATTR_TYPE.MAX_HP],
+          maxMp: Game.player.finalAttr[ATTR_TYPE.MAX_MP],
+        },
+        round: 0,
+        isEnd: false,
+        isWin: false,
+        rewards: null,
+      };
+      Game.battle.battleLog = [];
+      Game.state.isInBattle = true;
+      Game.battle.addBattleLog(`世界BOSS戰開始！對手：${boss.name} Lv.${boss.level}`, 'warning');
+      Game.render.switchView('battle');
+      Game.render.renderBattleView();
+      return true;
+    },
+    settleBossBattle: (isWin) => {
+      const battle = Game.battle.currentBattle;
+      if (!battle || !battle.isWorldBoss) return;
+      if (isWin) {
+        Game.player.worldBossData.lastKillTime = Date.now();
+        Game.player.worldBossData.totalKillCount += 1;
+        // 生成高級獎勵
+        const rewards = {
+          exp: Math.floor(10000 * Game.player.level),
+          gold: Math.floor(50000 * Game.player.level),
+          items: [],
+        };
+        // 必掉高品質裝備
+        const equipQuality = Game.equipment.getRandomQuality(WORLD_BOSS_CONFIG.dropMinQuality, WORLD_BOSS_CONFIG.dropMaxQuality, Game.player.level / 5);
+        rewards.items.push(Game.equipment.generateEquipment(Game.player.level, equipQuality));
+        // 額外材料獎勵
+        rewards.items.push({ id: GameUtils.generateUniqueId(), name: '強化石', type: ITEM_TYPE.MATERIAL, count: 500 });
+        rewards.items.push({ id: GameUtils.generateUniqueId(), name: '洗練石', type: ITEM_TYPE.MATERIAL, count: 200 });
+        rewards.items.push({ id: GameUtils.generateUniqueId(), name: '資質丹', type: ITEM_TYPE.MATERIAL, count: 50 });
+        Game.drop.grantRewards(rewards);
+        Game.log.addLog('世界BOSS擊殺成功！獲得豐厚獎勵', 'success');
+      }
+    },
+  },
+
+  // 裝備繼承系統模塊
+  equipInherit: {
+    openInheritModal: (oldEquip, newEquip, isOldWorn = false, isNewWorn = false) => {
+      if (oldEquip.slot !== newEquip.slot) {
+        Game.log.addLog('繼承失敗：只能繼承同部位的裝備', 'danger');
+        return false;
+      }
+      Game.equipInherit.currentOldEquip = oldEquip;
+      Game.equipInherit.currentNewEquip = newEquip;
+      Game.equipInherit.isOldWorn = isOldWorn;
+      Game.equipInherit.isNewWorn = isNewWorn;
+      document.getElementById('inheritModal').classList.add('active');
+      Game.modal.renderInheritModal();
+      return true;
+    },
+    doInherit: () => {
+      const oldEquip = Game.equipInherit.currentOldEquip;
+      const newEquip = Game.equipInherit.currentNewEquip;
+      if (!oldEquip || !newEquip) return false;
+      // 檢查消耗
+      const costGold = oldEquip.level * oldEquip.enhanceLevel * 1000;
+      if (Game.player.gold < costGold) {
+        Game.log.addLog(`繼承失敗：需要金幣 ${GameUtils.formatNumber(costGold)}`, 'danger');
+        return false;
+      }
+      // 扣除金幣
+      Game.player.gold -= costGold;
+      // 繼承屬性：強化等級、星級、鎖定屬性、寶石、銘文
+      newEquip.enhanceLevel = oldEquip.enhanceLevel;
+      newEquip.enhanceFailProgress = oldEquip.enhanceFailProgress;
+      newEquip.star = oldEquip.star;
+      newEquip.lockAttrs = [...oldEquip.lockAttrs];
+      // 寶石繼承
+      const minGemSlot = Math.min(oldEquip.gemSlotCount, newEquip.gemSlotCount);
+      for (let i = 0; i < minGemSlot; i++) {
+        if (oldEquip.gemSlots[i]) {
+          newEquip.gemSlots[i] = oldEquip.gemSlots[i];
+          oldEquip.gemSlots[i] = null;
+        }
+      }
+      // 銘文繼承
+      const minInscriptionSlot = Math.min(oldEquip.inscriptionSlotCount, newEquip.inscriptionSlotCount);
+      for (let i = 0; i < minInscriptionSlot; i++) {
+        if (oldEquip.inscriptionSlots[i]) {
+          newEquip.inscriptionSlots[i] = oldEquip.inscriptionSlots[i];
+          oldEquip.inscriptionSlots[i] = null;
+        }
+      }
+      // 舊裝備重置
+      oldEquip.enhanceLevel = 0;
+      oldEquip.enhanceFailProgress = 0;
+      oldEquip.star = 1;
+      oldEquip.lockAttrs = [];
+      // 更新屬性
+      Game.equipment.calculateEquipAttr();
+      Game.log.addLog(`繼承成功！${oldEquip.name}的強化、星級、寶石、銘文已繼承到${newEquip.name}`, 'success');
+      document.getElementById('inheritModal').classList.remove('active');
+      Game.render.renderPlayerInfo();
+      Game.render.renderRoleView();
+      if (Game.state.currentView === 'equipment') Game.render.renderEquipmentView();
+      return true;
+    },
+  },
+
+  // 快捷操作模塊
+  quickAction: {
+    // 一鍵穿戴最優裝備
+    autoWearBestEquip: () => {
+      let hasChanged = false;
+      // 遍歷所有裝備部位
+      Object.values(EQUIP_SLOT).forEach(slot => {
+        // 獲取該部位所有裝備（背包+已穿戴）
+        const allEquip = [
+          Game.player.equipment[slot],
+          ...Game.player.backpack.filter(i => i.type === ITEM_TYPE.EQUIPMENT && i.slot === slot)
+        ].filter(e => e);
+        if (allEquip.length <= 1) return;
+        // 按戰鬥力排序
+        allEquip.sort((a, b) => Game.fightPower.getEquipFightPower(b) - Game.fightPower.getEquipFightPower(a));
+        const bestEquip = allEquip[0];
+        const currentEquip = Game.player.equipment[slot];
+        // 如果最優裝備不是當前穿戴的，替換
+        if (bestEquip.id !== currentEquip?.id && Game.player.level >= bestEquip.levelRequire) {
+          Game.equipment.equipItem(bestEquip.id);
+          hasChanged = true;
+        }
+      });
+      if (hasChanged) {
+        Game.log.addLog('一鍵穿戴完成，已自動穿戴各部位戰鬥力最高的裝備', 'success');
+      } else {
+        Game.log.addLog('當前已穿戴最優裝備，無需更換', 'warning');
+      }
+      Game.render.renderEquipmentView();
+      return hasChanged;
+    },
+    // 一鍵出售低品質裝備
+    autoSellLowQualityEquip: (maxQuality = EQUIP_QUALITY.GOOD) => {
+      const sellList = Game.player.backpack.filter(i => i.type === ITEM_TYPE.EQUIPMENT && i.quality <= maxQuality);
+      if (sellList.length === 0) {
+        Game.log.addLog('沒有可出售的低品質裝備', 'warning');
+        return false;
+      }
+      let totalGold = 0;
+      sellList.forEach(equip => {
+        const sellPrice = equip.level * (equip.quality + 1) * 100;
+        totalGold += sellPrice;
+        Game.backpack.removeItem(equip.id);
+      });
+      Game.player.gold += totalGold;
+      Game.log.addLog(`出售完成，共出售${sellList.length}件裝備，獲得金幣${GameUtils.formatNumber(totalGold)}`, 'success');
+      Game.render.renderPlayerInfo();
+      Game.render.renderEquipmentView();
+      return true;
+    },
+  },
+
+  // 擴展彈窗模塊
+  modal: Object.assign(Game.modal, {
+    renderInheritModal: () => {
+      const oldEquip = Game.equipInherit.currentOldEquip;
+      const newEquip = Game.equipInherit.currentNewEquip;
+      const costGold = oldEquip.level * oldEquip.enhanceLevel * 1000;
+      document.getElementById('inheritModalContent').innerHTML = `
+        <div style="text-align: center; margin-bottom: 1rem; color: var(--warning-color);">繼承後舊裝備的強化、星級、寶石、銘文將轉移到新裝備，舊裝備將重置</div>
+        <div class="inherit-compare-grid">
+          <div>
+            <h3 style="text-align: center; color: ${EQUIP_QUALITY_CONFIG[oldEquip.quality].color}; margin-bottom: 1rem;">${oldEquip.name}</h3>
+            <div class="detail-row">
+              <span>強化等級</span>
+              <span>+${oldEquip.enhanceLevel}</span>
+            </div>
+            <div class="detail-row">
+              <span>裝備星級</span>
+              <span>★${oldEquip.star}</span>
+            </div>
+            <div class="detail-row">
+              <span>寶石數量</span>
+              <span>${oldEquip.gemSlots.filter(g => g).length}/${oldEquip.gemSlotCount}</span>
+            </div>
+            <div class="detail-row">
+              <span>銘文數量</span>
+              <span>${oldEquip.inscriptionSlots.filter(i => i).length}/${oldEquip.inscriptionSlotCount}</span>
+            </div>
+          </div>
+          <div class="inherit-arrow">→</div>
+          <div>
+            <h3 style="text-align: center; color: ${EQUIP_QUALITY_CONFIG[newEquip.quality].color}; margin-bottom: 1rem;">${newEquip.name}</h3>
+            <div class="detail-row">
+              <span>強化等級</span>
+              <span>+${newEquip.enhanceLevel} → +${oldEquip.enhanceLevel}</span>
+            </div>
+            <div class="detail-row">
+              <span>裝備星級</span>
+              <span>★${newEquip.star} → ★${oldEquip.star}</span>
+            </div>
+            <div class="detail-row">
+              <span>寶石槽數</span>
+              <span>${newEquip.gemSlotCount} 個</span>
+            </div>
+            <div class="detail-row">
+              <span>銘文槽數</span>
+              <span>${newEquip.inscriptionSlotCount} 個</span>
+            </div>
+          </div>
+        </div>
+        <div class="detail-row">
+          <span>繼承消耗</span>
+          <span>金幣 ${GameUtils.formatNumber(costGold)}</span>
+        </div>
+      `;
+      document.getElementById('inheritModalActionBtns').innerHTML = `
+        <button class="btn btn-primary" id="confirmInheritBtn" ${Game.player.gold < costGold ? 'disabled' : ''}>確認繼承</button>
+        <button class="btn btn-outline" id="cancelInheritBtn">取消</button>
+      `;
+      document.getElementById('confirmInheritBtn').addEventListener('click', Game.equipInherit.doInherit);
+      document.getElementById('cancelInheritBtn').addEventListener('click', () => document.getElementById('inheritModal').classList.remove('active'));
+    },
+  }),
+
+  // 擴展渲染模塊
+  render: Object.assign(Game.render, {
+    currentBagCategory: 'all',
+    updateSignInTip: () => {
+      const signInBtn = document.querySelector('.nav-btn[data-view="signIn"]');
+      if (signInBtn) {
+        signInBtn.textContent = Game.signIn.canSignIn() ? '簽到(可領)' : '簽到';
+      }
+    },
+    renderSignInView: () => {
+      const signInView = document.getElementById('signInView');
+      Game.signIn.initData();
+      signInView.innerHTML = `
+        <div class="card">
+          <h2 class="card-title">每日簽到</h2>
+          <div style="text-align: center; margin-bottom: 1rem;">累計簽到：${Game.player.signInData.totalSigned} 天</div>
+          <div class="sign-in-grid">
+            ${SIGN_IN_CONFIG.map((config, index) => {
+              const day = index + 1;
+              const isClaimed = day <= Game.player.signInData.signedDays && Game.player.signInData.signedToday;
+              const isToday = day === (Game.player.signInData.signedDays % 7) + 1 && !Game.player.signInData.signedToday;
+              return `
+                <div class="sign-in-item ${isClaimed ? 'claimed' : ''} ${isToday ? 'today' : ''}">
+                  <div style="font-weight: bold; margin-bottom: 0.3rem;">第${day}天</div>
+                  <div style="font-size: 0.7rem; color: #AAAAAA;">
+                    ${Object.entries(config.reward).map(([name, count]) => `${name}x${count}`).join('<br>')}
+                  </div>
+                  ${isClaimed ? '<div style="margin-top: 0.5rem; color: var(--success-color); font-size: 0.8rem;">已領取</div>' : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+          <div style="text-align: center; margin-top: 2rem;">
+            <button class="btn btn-success btn-lg" id="signInBtn" ${!Game.signIn.canSignIn() ? 'disabled' : ''}>
+              ${Game.signIn.canSignIn() ? '今日簽到領取獎勵' : '今日已簽到'}
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('signInBtn').addEventListener('click', Game.signIn.doSignIn);
+    },
+    renderWorldBossView: () => {
+      const bossView = document.getElementById('worldBossView');
+      Game.worldBoss.initData();
+      const isAlive = Game.worldBoss.isAlive();
+      bossView.innerHTML = `
+        <div class="card">
+          <h2 class="card-title">世界BOSS</h2>
+          ${isAlive ? `
+            <div class="boss-refresh-tip" style="color: var(--success-color);">世界BOSS已刷新！</div>
+            <div class="world-boss-info">
+              <div class="afk-info-card">
+                <div>BOSS等級</div>
+                <div class="afk-info-value">Lv.${Math.max(WORLD_BOSS_CONFIG.baseLevel, Game.player.level)}</div>
+                <div style="color: #AAAAAA; font-size: 0.8rem;">隨玩家等級提升</div>
+              </div>
+              <div class="afk-info-card">
+                <div>累計擊殺次數</div>
+                <div class="afk-info-value">${Game.player.worldBossData.totalKillCount}</div>
+                <div style="color: #AAAAAA; font-size: 0.8rem;">擊殺次數越多，掉落越好</div>
+              </div>
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+              <h4 style="margin-bottom: 0.5rem;">掉落獎勵</h4>
+              <p style="color: #CCCCCC; line-height: 1.6;">必掉史詩以上品質裝備，概率掉落至尊品質裝備，還有大量強化石、洗練石、資質丹等稀有材料</p>
+            </div>
+            <div style="text-align: center;">
+              <button class="btn btn-danger btn-lg" id="startBossBattleBtn">開始挑戰世界BOSS</button>
+            </div>
+          ` : `
+            <div class="boss-refresh-tip">世界BOSS已被擊殺，將在<span id="bossRefreshCountDown">${Game.worldBoss.getRefreshTime()}</span>秒後刷新</div>
+            <div class="world-boss-info">
+              <div class="afk-info-card">
+                <div>上次擊殺時間</div>
+                <div class="afk-info-value">${new Date(Game.player.worldBossData.lastKillTime).toLocaleString()}</div>
+              </div>
+              <div class="afk-info-card">
+                <div>累計擊殺次數</div>
+                <div class="afk-info-value">${Game.player.worldBossData.totalKillCount}</div>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+      if (document.getElementById('startBossBattleBtn')) {
+        document.getElementById('startBossBattleBtn').addEventListener('click', Game.worldBoss.startBattle);
+      }
+      // 倒計時刷新
+      if (!isAlive) {
+        const countDownEl = document.getElementById('bossRefreshCountDown');
+        if (countDownEl) {
+          setInterval(() => {
+            const time = Game.worldBoss.getRefreshTime();
+            countDownEl.textContent = time;
+            if (time <= 0) Game.render.renderWorldBossView();
+          }, 1000);
+        }
+      }
+    },
+    renderInheritView: () => {
+      const inheritView = document.getElementById('inheritView');
+      inheritView.innerHTML = `
+        <div class="card">
+          <h2 class="card-title">裝備繼承</h2>
+          <div style="margin-bottom: 1.5rem; color: #AAAAAA;">將舊裝備的強化等級、星級、寶石、銘文繼承到同部位的新裝備上，避免重複培養的損耗</div>
+          <div style="text-align: center; color: var(--warning-color);">請在裝備界面選擇要繼承的舊裝備，點擊「繼承」按鈕選擇目標新裝備</div>
+        </div>
+      `;
+    },
+  }),
+});
+
+// 擴展導航欄，新增按鈕
+window.addEventListener('load', () => {
+  const mainNav = document.getElementById('mainNav');
+  const navList = [
+    { id: 'signIn', name: '簽到' },
+    { id: 'worldBoss', name: '世界BOSS' },
+    { id: 'inherit', name: '裝備繼承' },
+  ];
+  navList.forEach(nav => {
+    if (!document.querySelector(`.nav-btn[data-view="${nav.id}"]`)) {
+      const btn = document.createElement('button');
+      btn.className = 'nav-btn';
+      btn.dataset.view = nav.id;
+      btn.textContent = nav.name;
+      mainNav.insertBefore(btn, document.getElementById('saveManageBtn'));
+      btn.addEventListener('click', () => Game.render.switchView(nav.id));
+    }
+  });
+  // 初始化難度系統
+  Game.difficulty.initData();
+  // 更新簽到提示
+  Game.render.updateSignInTip();
+  // 戰鬥力實時更新
+  setInterval(() => {
+    const powerEl = document.getElementById('fightPowerDisplay');
+    if (powerEl) powerEl.textContent = Game.fightPower.calculateFightPower();
+  }, 1000);
+});
+
+// 擴展視圖切換邏輯
+const originalViewSwitch = Game.render.switchView;
+Game.render.switchView = (viewName) => {
+  originalViewSwitch(viewName);
+  if (viewName === 'signIn') Game.render.renderSignInView();
+  if (viewName === 'worldBoss') Game.render.renderWorldBossView();
+  if (viewName === 'inherit') Game.render.renderInheritView();
+};
+
+// 擴展角色界面，新增戰鬥力顯示
+const originalRoleRender = Game.render.renderRoleView;
+Game.render.renderRoleView = () => {
+  originalRoleRender();
+  const roleView = document.getElementById('roleView');
+  if (roleView) {
+    const firstCard = roleView.querySelector('.card');
+    if (firstCard) {
+      const powerHtml = `<div class="fight-power-display">戰鬥力：<span id="fightPowerDisplay">${Game.fightPower.calculateFightPower()}</span></div>`;
+      firstCard.insertAdjacentHTML('afterbegin', powerHtml);
+    }
+  }
+};
+
+// 擴展背包界面，新增分類標籤
+const originalEquipRender = Game.render.renderEquipmentView;
+Game.render.renderEquipmentView = () => {
+  originalEquipRender();
+  const backpackHeader = document.querySelector('.backpack-header');
+  if (backpackHeader) {
+    const categoryHtml = `
+      <div class="bag-category-nav" style="margin-top: 0.5rem;">
+        <button class="btn bag-category-btn ${Game.render.currentBagCategory === 'all' ? 'active' : ''}" data-category="all">全部</button>
+        <button class="btn bag-category-btn ${Game.render.currentBagCategory === 'equip' ? 'active' : ''}" data-category="equip">裝備</button>
+        <button class="btn bag-category-btn ${Game.render.currentBagCategory === 'material' ? 'active' : ''}" data-category="material">材料</button>
+        <button class="btn bag-category-btn ${Game.render.currentBagCategory === 'gem' ? 'active' : ''}" data-category="gem">寶石</button>
+        <button class="btn bag-category-btn ${Game.render.currentBagCategory === 'fragment' ? 'active' : ''}" data-category="fragment">碎片</button>
+      </div>
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <button class="btn btn-success btn-sm" id="autoWearBtn">一鍵穿戴最優</button>
+        <button class="btn btn-warning btn-sm" id="autoSellBtn">一鍵出售白綠裝</button>
+      </div>
+    `;
+    backpackHeader.insertAdjacentHTML('afterend', categoryHtml);
+    // 分類按鈕事件
+    document.querySelectorAll('.bag-category-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        Game.render.currentBagCategory = btn.dataset.category;
+        Game.render.renderEquipmentView();
+      });
+    });
+    // 快捷按鈕事件
+    document.getElementById('autoWearBtn').addEventListener('click', Game.quickAction.autoWearBestEquip);
+    document.getElementById('autoSellBtn').addEventListener('click', () => Game.quickAction.autoSellLowQualityEquip(EQUIP_QUALITY.GOOD));
+    // 背包分類過濾
+    const equipListGrid = document.querySelector('.equip-list-grid');
+    if (equipListGrid && Game.render.currentBagCategory !== 'all') {
+      const categoryMap = {
+        equip: ITEM_TYPE.EQUIPMENT,
+        material: ITEM_TYPE.MATERIAL,
+        gem: ITEM_TYPE.GEM,
+        fragment: ITEM_TYPE.FRAGMENT,
+      };
+      const targetType = categoryMap[Game.render.currentBagCategory];
+      const allItems = Game.player.backpack.filter(i => i.type === targetType);
+      equipListGrid.innerHTML = allItems.length > 0 ? allItems.map(item => {
+        if (item.type === ITEM_TYPE.EQUIPMENT) {
+          return Game.render.renderEquipCard(item);
+        } else {
+          return `
+            <div class="equip-card quality-${item.quality || 0}">
+              <div class="equip-card-name">${item.name}</div>
+              <div class="equip-card-info">數量：${item.count || 1}</div>
+              <div class="equip-card-attr">${item.desc || ''}</div>
+            </div>
+          `;
+        }
+      }).join('') : '<div style="grid-column: 1/-1; text-align: center; color: #AAAAAA; padding: 2rem;">該分類下暫無道具</div>';
+      // 重新綁定點擊事件
+      allItems.forEach(item => {
+        const cardEl = document.getElementById(`equip-card-${item.id}`);
+        if (cardEl && item.type === ITEM_TYPE.EQUIPMENT) {
+          cardEl.addEventListener('click', () => Game.modal.openEquipDetailModal(item, false));
+        }
+      });
+    }
+  }
+};
+
+// 擴展裝備詳情彈窗，新增繼承按鈕
+const originalEquipDetailRender = Game.modal.renderEquipDetailModal;
+Game.modal.renderEquipDetailModal = (equip, isWorn = false) => {
+  originalEquipDetailRender(equip, isWorn);
+  const actionEl = document.getElementById('modalActionBtns');
+  const inheritBtn = document.createElement('button');
+  inheritBtn.className = 'btn btn-outline';
+  inheritBtn.textContent = '繼承';
+  inheritBtn.addEventListener('click', () => {
+    Game.modal.closeEquipDetailModal();
+    // 選擇同部位的目標裝備
+    const targetEquipList = Game.player.backpack.filter(i => i.type === ITEM_TYPE.EQUIPMENT && i.slot === equip.slot && i.id !== equip.id);
+    if (targetEquipList.length === 0) {
+      Game.log.addLog('沒有可繼承的同部位目標裝備', 'warning');
+      return;
+    }
+    // 默認選擇第一個，後續可優化為選擇界面
+    Game.equipInherit.openInheritModal(equip, targetEquipList[0], isWorn, false);
+  });
+  actionEl.appendChild(inheritBtn);
+};
+
+// 擴展戰鬥結算邏輯，兼容世界BOSS
+const originalBattleEnd = Game.battle.checkBattleEnd;
+Game.battle.checkBattleEnd = () => {
+  const battle = Game.battle.currentBattle;
+  const isEnd = originalBattleEnd();
+  if (isEnd && battle?.isWorldBoss) {
+    setTimeout(() => Game.worldBoss.settleBossBattle(battle.isWin), 500);
+  }
+  return isEnd;
+};
+
+// 擴展怪物生成邏輯，兼容難度系統
+const originalMonsterGenerate = Game.monster.generateMonster;
+Game.monster.generateMonster = (stageLevel, quality = MONSTER_QUALITY.NORMAL) => {
+  const monster = originalMonsterGenerate(stageLevel, quality);
+  const difficultyConfig = Game.difficulty.getCurrentConfig();
+  // 難度屬性加成
+  for (const attrKey in monster.attrs) {
+    monster.attrs[attrKey] = Math.floor(monster.attrs[attrKey] * difficultyConfig.attrMultiplier);
+  }
+  monster.currentHp = monster.attrs[ATTR_TYPE.MAX_HP];
+  return monster;
+};
+
+// 擴展掉落生成邏輯，兼容難度系統
+const originalDropGenerate = Game.drop.generateDrop;
+Game.drop.generateDrop = (monster, stageLevel) => {
+  const rewards = originalDropGenerate(monster, stageLevel);
+  const difficultyConfig = Game.difficulty.getCurrentConfig();
+  rewards.exp = Math.floor(rewards.exp * difficultyConfig.expMultiplier);
+  rewards.gold = Math.floor(rewards.gold * difficultyConfig.dropMultiplier);
+  return rewards;
+};
+
+// 擴展設置界面，新增難度選擇
+const originalSettingRender = Game.render.renderSettingView;
+Game.render.renderSettingView = () => {
+  originalSettingRender();
+  const settingView = document.getElementById('settingView');
+  const firstCard = settingView.querySelector('.card');
+  if (firstCard) {
+    const difficultyHtml = `
+      <div style="margin-bottom: 1.5rem;">
+        <h3 class="card-title">遊戲難度</h3>
+        <div class="difficulty-selector">
+          ${Object.entries(DIFFICULTY_CONFIG).map(([key, config]) => `
+            <button class="difficulty-btn difficulty-${key} ${Game.difficulty.current === key ? 'active' : ''}" data-difficulty="${key}">
+              ${config.name}
+            </button>
+          `).join('')}
+        </div>
+        <div style="color: #AAAAAA; font-size: 0.8rem; text-align: center;">難度越高，怪物屬性越強，掉落和經驗獎勵越豐厚</div>
+      </div>
+    `;
+    firstCard.insertAdjacentHTML('afterbegin', difficultyHtml);
+    // 難度按鈕事件
+    document.querySelectorAll('.difficulty-btn').forEach(btn => {
+      btn.addEventListener('click', () => Game.difficulty.changeDifficulty(btn.dataset.difficulty));
+    });
+  }
+};
+
+// 擴展存檔加載邏輯，初始化新增數據
+const originalLoadGame = Game.save.loadGame;
+Game.save.loadGame = () => {
+  const result = originalLoadGame();
+  Game.difficulty.initData();
+  Game.signIn.initData();
+  Game.worldBoss.initData();
+  Game.render.updateSignInTip();
+  return result;
+};
+
+// 繼承彈窗關閉事件
+document.getElementById('inheritModalCloseBtn').addEventListener('click', () => document.getElementById('inheritModal').classList.remove('active'));
+document.getElementById('inheritModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('inheritModal')) document.getElementById('inheritModal').classList.remove('active');
+});
+</script>
+<style>
+/* 第十一部分：新增系統專用樣式 - 完全兼容原有主題變量 */
+.title-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.title-card {
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  background: rgba(0,0,0,0.3);
+  transition: all 0.2s ease;
+}
+.title-card.activated {
+  border-color: var(--success-color);
+}
+.title-card.wearing {
+  border-color: var(--warning-color);
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.4);
+}
+.title-name {
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+.fashion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+.fashion-card {
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  background: rgba(0,0,0,0.3);
+  text-align: center;
+}
+.fashion-card.activated {
+  border-color: var(--primary-color);
+}
+.skill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+.skill-card {
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  background: rgba(0,0,0,0.3);
+}
+.skill-name {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: var(--primary-color);
+}
+.skill-cooldown {
+  font-size: 0.8rem;
+  color: #AAAAAA;
+  margin-bottom: 0.5rem;
+}
+.dungeon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.dungeon-card {
+  display: grid;
+  grid-template-columns: 1fr 120px 100px;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.3);
+}
+.dungeon-info h4 {
+  margin-bottom: 0.3rem;
+}
+.rebirth-info-card {
+  background: linear-gradient(135deg, rgba(142, 68, 173, 0.3), rgba(0,0,0,0.3));
+  border: 2px solid var(--primary-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.rebirth-level-display {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--warning-color);
+  margin: 0.5rem 0;
+  text-shadow: 0 0 10px var(--warning-color);
+}
+</style>
+
+<!-- 第十一部分：新增界面容器 -->
+<div id="titleView" class="view-container"></div>
+<div id="fashionView" class="view-container"></div>
+<div id="skillView" class="view-container"></div>
+<div id="dungeonView" class="view-container"></div>
+<div id="rebirthView" class="view-container"></div>
+
+<script>
+// ==================== 第十一部分：稱號、時裝、技能、副本、轉生系統完整實現 ====================
+// 完全兼容原有核心框架，無侵入式修改，僅新增擴展功能
+const TITLE_CONFIG = [
+  { id: 'new_player', name: '初入修真', attr: { [ATTR_TYPE.MAX_HP]: 100 }, condition: { type: 'level', target: 1 }, desc: '角色等級達到1級解鎖' },
+  { id: 'level_50', name: '修真宗師', attr: { [ATTR_TYPE.PHYSICAL_ATTACK]: 50, [ATTR_TYPE.MAGIC_ATTACK]: 50 }, condition: { type: 'level', target: 50 }, desc: '角色等級達到50級解鎖' },
+  { id: 'level_100', name: '百級大能', attr: { [ATTR_TYPE.PHYSICAL_ATTACK]: 200, [ATTR_TYPE.MAGIC_ATTACK]: 200, [ATTR_TYPE.MAX_HP]: 1000 }, condition: { type: 'level', target: 100 }, desc: '角色等級達到100級解鎖' },
+  { id: 'stage_100', name: '通關百關', attr: { [ATTR_TYPE.HIT]: 0.02, [ATTR_TYPE.DODGE]: 0.02 }, condition: { type: 'stage', target: 100 }, desc: '通關第100關解鎖' },
+  { id: 'boss_killer', name: 'BOSS殺手', attr: { [ATTR_TYPE.CRIT_RATE]: 0.03 }, condition: { type: 'boss_kill', target: 10 }, desc: '累計擊殺10次世界BOSS解鎖' },
+  { id: 'pvp_king', name: '競技王者', attr: { [ATTR_TYPE.CRIT_DAMAGE]: 0.1 }, condition: { type: 'pvp_rank', target: 1 }, desc: 'PVP排名達到第1名解鎖' },
+  { id: 'first_charge', name: '首充豪俠', attr: { [ATTR_TYPE.ALL_ATTR_MULTIPLIER]: 0.05 }, condition: { type: 'first_charge', target: 1 }, desc: '完成首充解鎖，全屬性提升5%' },
+  { id: 'sign_30', name: '月簽達人', attr: { [ATTR_TYPE.MAX_HP]: 500, [ATTR_TYPE.PHYSICAL_DEFENSE]: 50, [ATTR_TYPE.MAGIC_DEFENSE]: 50 }, condition: { type: 'sign_day', target: 30 }, desc: '累計簽到30天解鎖' },
+];
+
+const FASHION_CONFIG = [
+  { id: 'default', name: '初始道袍', slot: 'body', attr: {}, condition: { type: 'default', target: 1 }, desc: '初始時裝，無屬性加成' },
+  { id: 'epic_suit', name: '史詩戰甲', slot: 'body', attr: { [ATTR_TYPE.PHYSICAL_ATTACK]: 100, [ATTR_TYPE.MAGIC_ATTACK]: 100, [ATTR_TYPE.PHYSICAL_DEFENSE]: 100, [ATTR_TYPE.MAGIC_DEFENSE]: 100 }, condition: { type: 'stage', target: 50 }, desc: '通關第50關解鎖' },
+  { id: 'legend_suit', name: '傳說神袍', slot: 'body', attr: { [ATTR_TYPE.PHYSICAL_ATTACK]: 300, [ATTR_TYPE.MAGIC_ATTACK]: 300, [ATTR_TYPE.MAX_HP]: 2000, [ATTR_TYPE.CRIT_RATE]: 0.05 }, condition: { type: 'stage', target: 100 }, desc: '通關第100關解鎖' },
+  { id: 'vip_suit', name: '至尊華服', slot: 'body', attr: { [ATTR_TYPE.ALL_ATTR_MULTIPLIER]: 0.1 }, condition: { type: 'first_charge', target: 1 }, desc: '首充解鎖，全屬性提升10%' },
+  { id: 'pvp_suit', name: '競技戰袍', slot: 'body', attr: { [ATTR_TYPE.CRIT_RATE]: 0.08, [ATTR_TYPE.CRIT_DAMAGE]: 0.15 }, condition: { type: 'pvp_rank', target: 10 }, desc: 'PVP排名進入前10解鎖' },
+];
+
+const SKILL_TYPE = {
+  ACTIVE_ATTACK: 'active_attack',
+  ACTIVE_HEAL: 'active_heal',
+  ACTIVE_BUFF: 'active_buff',
+};
+
+const SKILL_CONFIG = [
+  { id: 'normal_attack', name: '普通攻擊', type: SKILL_TYPE.ACTIVE_ATTACK, maxLevel: 1, baseDamage: 1.0, cooldown: 0, desc: '基礎普通攻擊，造成100%傷害' },
+  { id: 'fire_ball', name: '火球術', type: SKILL_TYPE.ACTIVE_ATTACK, maxLevel: 10, baseDamage: 2.0, damagePerLevel: 0.3, cooldown: 2, mpCost: 20, desc: '對敵人造成200%法術傷害，每級提升30%傷害' },
+  { id: 'sword_slash', name: '劍氣斬', type: SKILL_TYPE.ACTIVE_ATTACK, maxLevel: 10, baseDamage: 2.2, damagePerLevel: 0.35, cooldown: 2, mpCost: 25, desc: '對敵人造成220%物理傷害，每級提升35%傷害' },
+  { id: 'heal', name: '治療術', type: SKILL_TYPE.ACTIVE_HEAL, maxLevel: 10, baseHeal: 0.3, healPerLevel: 0.05, cooldown: 3, mpCost: 30, desc: '恢復自身30%最大生命值，每級提升5%治療量' },
+  { id: 'attack_buff', name: '攻擊增幅', type: SKILL_TYPE.ACTIVE_BUFF, maxLevel: 10, buffMultiplier: 0.2, buffPerLevel: 0.03, buffRound: 3, cooldown: 5, mpCost: 40, desc: '3回合內提升自身20%攻擊力，每級提升3%增幅' },
+  { id: 'defense_buff', name: '防禦堅盾', type: SKILL_TYPE.ACTIVE_BUFF, maxLevel: 10, buffMultiplier: 0.3, buffPerLevel: 0.04, buffRound: 3, cooldown: 5, mpCost: 35, desc: '3回合內提升自身30%防禦力，每級提升4%增幅' },
+];
+
+const DUNGEON_CONFIG = [
+  { id: 'exp_dungeon', name: '經驗副本', type: 'exp', dailyCount: 3, desc: '挑戰獲得大量經驗', rewardDesc: '大量角色經驗' },
+  { id: 'gold_dungeon', name: '金幣副本', type: 'gold', dailyCount: 3, desc: '挑戰獲得大量金幣', rewardDesc: '大量遊戲金幣' },
+  { id: 'material_dungeon', name: '材料副本', type: 'material', dailyCount: 2, desc: '挑戰獲得強化、洗練材料', rewardDesc: '強化石、洗練石、資質丹' },
+  { id: 'gem_dungeon', name: '寶石副本', type: 'gem', dailyCount: 2, desc: '挑戰獲得各級寶石', rewardDesc: '1-3級隨機寶石' },
+];
+
+const REBIRTH_CONFIG = {
+  maxRebirthLevel: 10,
+  baseLevelRequire: 100,
+  levelRequirePerRebirth: 50, // 每轉生一次，上限提升50級
+  baseAttrMultiplier: 0.1, // 每轉生一次，全屬性提升10%
+  cost: {
+    gold: 1000000,
+    diamond: 1000,
+  },
+};
+
+Object.assign(Game, {
+  // 稱號系統模塊
+  title: {
+    initData: () => {
+      if (!Game.player.titleData) {
+        Game.player.titleData = {
+          activatedTitles: [],
+          wearingTitle: null,
+        };
+      }
+      Game.title.checkUnlockTitles();
+    },
+    checkUnlockTitles: () => {
+      const { activatedTitles } = Game.player.titleData;
+      let hasNewUnlock = false;
+      TITLE_CONFIG.forEach(title => {
+        if (activatedTitles.includes(title.id)) return;
+        let isUnlocked = false;
+        const cond = title.condition;
+        switch (cond.type) {
+          case 'level': isUnlocked = Game.player.level >= cond.target; break;
+          case 'stage': isUnlocked = Game.player.currentStage >= cond.target; break;
+          case 'boss_kill': isUnlocked = Game.player.worldBossData.totalKillCount >= cond.target; break;
+          case 'pvp_rank': isUnlocked = Game.pvp.getPlayerRank() <= cond.target; break;
+          case 'first_charge': isUnlocked = Game.player.firstCharge.hasRecharged; break;
+          case 'sign_day': isUnlocked = Game.player.signInData.totalSigned >= cond.target; break;
+          case 'default': isUnlocked = true; break;
+        }
+        if (isUnlocked) {
+          activatedTitles.push(title.id);
+          hasNewUnlock = true;
+          Game.log.addLog(`解鎖新稱號：${title.name}`, 'success');
+        }
+      });
+      if (hasNewUnlock) Game.attribute.calculateFinalAttr();
+    },
+    wearTitle: (titleId) => {
+      const title = TITLE_CONFIG.find(t => t.id === titleId);
+      if (!title || !Game.player.titleData.activatedTitles.includes(titleId)) {
+        Game.log.addLog('佩戴失敗：稱號未解鎖', 'danger');
+        return false;
+      }
+      Game.player.titleData.wearingTitle = titleId;
+      Game.attribute.calculateFinalAttr();
+      Game.log.addLog(`已佩戴稱號：${title.name}`, 'success');
+      Game.render.renderTitleView();
+      Game.render.renderRoleView();
+      return true;
+    },
+    getTitleTotalAttr: () => {
+      const attr = {};
+      // 佩戴的稱號屬性
+      const wearingTitle = TITLE_CONFIG.find(t => t.id === Game.player.titleData.wearingTitle);
+      if (wearingTitle) {
+        for (const key in wearingTitle.attr) {
+          attr[key] = (attr[key] || 0) + wearingTitle.attr[key];
+        }
+      }
+      // 所有解鎖稱號的收集屬性（可選，這裡只做佩戴生效）
+      return attr;
+    },
+  },
+
+  // 時裝系統模塊
+  fashion: {
+    initData: () => {
+      if (!Game.player.fashionData) {
+        Game.player.fashionData = {
+          activatedFashion: ['default'],
+          wearingFashion: { body: 'default' },
+        };
+      }
+      Game.fashion.checkUnlockFashion();
+    },
+    checkUnlockFashion: () => {
+      const { activatedFashion } = Game.player.fashionData;
+      let hasNewUnlock = false;
+      FASHION_CONFIG.forEach(fashion => {
+        if (activatedFashion.includes(fashion.id)) return;
+        let isUnlocked = false;
+        const cond = fashion.condition;
+        switch (cond.type) {
+          case 'level': isUnlocked = Game.player.level >= cond.target; break;
+          case 'stage': isUnlocked = Game.player.currentStage >= cond.target; break;
+          case 'pvp_rank': isUnlocked = Game.pvp.getPlayerRank() <= cond.target; break;
+          case 'first_charge': isUnlocked = Game.player.firstCharge.hasRecharged; break;
+          case 'default': isUnlocked = true; break;
+        }
+        if (isUnlocked) {
+          activatedFashion.push(fashion.id);
+          hasNewUnlock = true;
+          Game.log.addLog(`解鎖新時裝：${fashion.name}`, 'success');
+        }
+      });
+      if (hasNewUnlock) Game.attribute.calculateFinalAttr();
+    },
+    wearFashion: (fashionId) => {
+      const fashion = FASHION_CONFIG.find(f => f.id === fashionId);
+      if (!fashion || !Game.player.fashionData.activatedFashion.includes(fashionId)) {
+        Game.log.addLog('穿戴失敗：時裝未解鎖', 'danger');
+        return false;
+      }
+      Game.player.fashionData.wearingFashion[fashion.slot] = fashionId;
+      Game.attribute.calculateFinalAttr();
+      Game.log.addLog(`已穿戴時裝：${fashion.name}`, 'success');
+      Game.render.renderFashionView();
+      Game.render.renderRoleView();
+      return true;
+    },
+    getFashionTotalAttr: () => {
+      const attr = {};
+      const wearingFashion = Game.player.fashionData.wearingFashion;
+      for (const slot in wearingFashion) {
+        const fashion = FASHION_CONFIG.find(f => f.id === wearingFashion[slot]);
+        if (fashion) {
+          for (const key in fashion.attr) {
+            attr[key] = (attr[key] || 0) + fashion.attr[key];
+          }
+        }
+      }
+      return attr;
+    },
+  },
+
+  // 技能系統模塊
+  skill: {
+    initData: () => {
+      if (!Game.player.skillData) {
+        Game.player.skillData = {
+          skills: {
+            normal_attack: { level: 1, cooldownLeft: 0 },
+            fire_ball: { level: 0, cooldownLeft: 0 },
+            sword_slash: { level: 0, cooldownLeft: 0 },
+            heal: { level: 0, cooldownLeft: 0 },
+            attack_buff: { level: 0, cooldownLeft: 0 },
+            defense_buff: { level: 0, cooldownLeft: 0 },
+          },
+          buffs: {},
+        };
+      }
+    },
+    canUseSkill: (skillId) => {
+      const skill = SKILL_CONFIG.find(s => s.id === skillId);
+      const skillData = Game.player.skillData.skills[skillId];
+      if (!skill || !skillData || skillData.level <= 0) return false;
+      if (skillData.cooldownLeft > 0) return false;
+      if (skill.mpCost && Game.battle.currentBattle.player.currentMp < skill.mpCost) return false;
+      return true;
+    },
+    useSkill: (skillId) => {
+      if (!Game.skill.canUseSkill(skillId)) return false;
+      const skill = SKILL_CONFIG.find(s => s.id === skillId);
+      const skillData = Game.player.skillData.skills[skillId];
+      const battle = Game.battle.currentBattle;
+      // 扣除藍量
+      if (skill.mpCost) battle.player.currentMp -= skill.mpCost;
+      // 設置冷卻
+      skillData.cooldownLeft = skill.cooldown;
+      // 技能效果
+      if (skill.type === SKILL_TYPE.ACTIVE_ATTACK) {
+        const damageMultiplier = skill.baseDamage + (skillData.level - 1) * skill.damagePerLevel;
+        const damage = Game.battle.calculatePlayerDamage(damageMultiplier);
+        battle.monster.currentHp -= damage;
+        Game.battle.addBattleLog(`你釋放了【${skill.name}】，對${battle.monster.name}造成了${GameUtils.formatNumber(damage)}點傷害！`, 'player');
+      }
+      if (skill.type === SKILL_TYPE.ACTIVE_HEAL) {
+        const healMultiplier = skill.baseHeal + (skillData.level - 1) * skill.healPerLevel;
+        const healValue = Math.floor(Game.player.finalAttr[ATTR_TYPE.MAX_HP] * healMultiplier);
+        battle.player.currentHp = Math.min(battle.player.maxHp, battle.player.currentHp + healValue);
+        Game.battle.addBattleLog(`你釋放了【${skill.name}】，恢復了${GameUtils.formatNumber(healValue)}點生命值！`, 'player');
+      }
+      if (skill.type === SKILL_TYPE.ACTIVE_BUFF) {
+        const buffMultiplier = skill.buffMultiplier + (skillData.level - 1) * skill.buffPerLevel;
+        Game.player.skillData.buffs[skillId] = {
+          multiplier: buffMultiplier,
+          roundLeft: skill.buffRound,
+          type: skill.id,
+        };
+        Game.battle.addBattleLog(`你釋放了【${skill.name}】，獲得了強力增益效果！`, 'player');
+      }
+      // 刷新戰鬥界面
+      Game.render.renderBattleView();
+      // 檢查戰鬥是否結束
+      Game.battle.checkBattleEnd();
+      return true;
+    },
+    levelUpSkill: (skillId) => {
+      const skill = SKILL_CONFIG.find(s => s.id === skillId);
+      const skillData = Game.player.skillData.skills[skillId];
+      if (!skill || !skillData) return false;
+      if (skillData.level >= skill.maxLevel) {
+        Game.log.addLog('升級失敗：技能已達到最高等級', 'danger');
+        return false;
+      }
+      const costGold = (skillData.level + 1) * 10000;
+      if (Game.player.gold < costGold) {
+        Game.log.addLog(`升級失敗：需要金幣 ${GameUtils.formatNumber(costGold)}`, 'danger');
+        return false;
+      }
+      Game.player.gold -= costGold;
+      skillData.level += 1;
+      Game.log.addLog(`${skill.name} 升級成功！當前等級 Lv.${skillData.level}`, 'success');
+      Game.render.renderSkillView();
+      return true;
+    },
+    onRoundEnd: () => {
+      // 冷卻回合減少
+      for (const skillId in Game.player.skillData.skills) {
+        const skillData = Game.player.skillData.skills[skillId];
+        if (skillData.cooldownLeft > 0) skillData.cooldownLeft -= 1;
+      }
+      // buff回合減少
+      for (const buffId in Game.player.skillData.buffs) {
+        const buff = Game.player.skillData.buffs[buffId];
+        buff.roundLeft -= 1;
+        if (buff.roundLeft <= 0) delete Game.player.skillData.buffs[buffId];
+      }
+    },
+    getBuffMultiplier: (buffType) => {
+      const buff = Game.player.skillData.buffs[buffType];
+      return buff ? 1 + buff.multiplier : 1;
+    },
+  },
+
+  // 日常副本系統模塊
+  dungeon: {
+    initData: () => {
+      if (!Game.player.dungeonData) {
+        Game.player.dungeonData = {
+          dailyCount: {},
+          lastDailyReset: Date.now(),
+        };
+        DUNGEON_CONFIG.forEach(dungeon => {
+          Game.player.dungeonData.dailyCount[dungeon.id] = dungeon.dailyCount;
+        });
+      }
+      Game.dungeon.checkDailyReset();
+    },
+    checkDailyReset: () => {
+      const now = Date.now();
+      const oneDay = 86400000;
+      if (now - Game.player.dungeonData.lastDailyReset >= oneDay) {
+        DUNGEON_CONFIG.forEach(dungeon => {
+          Game.player.dungeonData.dailyCount[dungeon.id] = dungeon.dailyCount;
+        });
+        Game.player.dungeonData.lastDailyReset = now;
+        Game.log.addLog('每日副本挑戰次數已重置', 'success');
+      }
+    },
+    startDungeon: (dungeonId) => {
+      Game.dungeon.initData();
+      const dungeon = DUNGEON_CONFIG.find(d => d.id === dungeonId);
+      if (!dungeon) {
+        Game.log.addLog('挑戰失敗：副本不存在', 'danger');
+        return false;
+      }
+      if (Game.player.dungeonData.dailyCount[dungeonId] <= 0) {
+        Game.log.addLog('挑戰失敗：今日挑戰次數已用完', 'danger');
+        return false;
+      }
+      if (Game.state.isInBattle) {
+        Game.log.addLog('當前已有戰鬥進行中', 'warning');
+        return false;
+      }
+      // 生成副本怪物
+      const monsterLevel = Math.max(1, Game.player.level);
+      const monster = Game.monster.generateMonster(monsterLevel, MONSTER_QUALITY.ELITE);
+      monster.name = `${dungeon.name}守護者`;
+      monster.attrs[ATTR_TYPE.MAX_HP] *= 3;
+      monster.attrs[ATTR_TYPE.PHYSICAL_ATTACK] *= 1.5;
+      monster.attrs[ATTR_TYPE.MAGIC_ATTACK] *= 1.5;
+      monster.currentHp = monster.attrs[ATTR_TYPE.MAX_HP];
+      // 初始化戰鬥
+      Game.battle.currentBattle = {
+        isDungeon: true,
+        dungeonId: dungeonId,
+        monster: monster,
+        player: {
+          currentHp: Game.player.finalAttr[ATTR_TYPE.MAX_HP],
+          currentMp: Game.player.finalAttr[ATTR_TYPE.MAX_MP],
+          maxHp: Game.player.finalAttr[ATTR_TYPE.MAX_HP],
+          maxMp: Game.player.finalAttr[ATTR_TYPE.MAX_MP],
+        },
+        round: 0,
+        isEnd: false,
+        isWin: false,
+        rewards: null,
+      };
+      Game.battle.battleLog = [];
+      Game.state.isInBattle = true;
+      Game.battle.addBattleLog(`副本挑戰開始！對手：${monster.name} Lv.${monster.level}`, 'warning');
+      Game.render.switchView('battle');
+      Game.render.renderBattleView();
+      return true;
+    },
+    settleDungeonBattle: (isWin) => {
+      const battle = Game.battle.currentBattle;
+      if (!battle || !battle.isDungeon) return;
+      const dungeon = DUNGEON_CONFIG.find(d => d.id === battle.dungeonId);
+      if (isWin) {
+        // 扣除次數
+        Game.player.dungeonData.dailyCount[battle.dungeonId] -= 1;
+        // 生成獎勵
+        const rewards = { exp: 0, gold: 0, items: [] };
+        const playerLevel = Game.player.level;
+        switch (dungeon.type) {
+          case 'exp':
+            rewards.exp = playerLevel * 10000;
+            break;
+          case 'gold':
+            rewards.gold = playerLevel * 50000;
+            break;
+          case 'material':
+            rewards.items.push({ id: GameUtils.generateUniqueId(), name: '強化石', type: ITEM_TYPE.MATERIAL, count: 100 });
+            rewards.items.push({ id: GameUtils.generateUniqueId(), name: '洗練石', type: ITEM_TYPE.MATERIAL, count: 50 });
+            rewards.items.push({ id: GameUtils.generateUniqueId(), name: '資質丹', type: ITEM_TYPE.MATERIAL, count: 10 });
+            break;
+          case 'gem':
+            for (let i = 0; i < 3; i++) {
+              const gemTypes = Object.values(GEM_TYPE);
+              const randomType = gemTypes[GameUtils.getRandomInt(0, gemTypes.length - 1)];
+              const level = GameUtils.getRandomInt(1, 3);
+              rewards.items.push(Game.gem.generateGem(randomType, level));
+            }
+            break;
+        }
+        Game.drop.grantRewards(rewards);
+        Game.log.addLog(`副本挑戰成功！獲得${dungeon.rewardDesc}`, 'success');
+      }
+    },
+  },
+
+  // 轉生系統模塊
+  rebirth: {
+    initData: () => {
+      if (Game.player.rebirthData === undefined) {
+        Game.player.rebirthData = {
+          rebirthLevel: 0,
+        };
+      }
+    },
+    getMaxLevel: () => {
+      const { rebirthLevel } = Game.player.rebirthData;
+      return REBIRTH_CONFIG.baseLevelRequire + rebirthLevel * REBIRTH_CONFIG.levelRequirePerRebirth;
+    },
+    canRebirth: () => {
+      const { rebirthLevel } = Game.player.rebirthData;
+      if (rebirthLevel >= REBIRTH_CONFIG.maxRebirthLevel) return false;
+      if (Game.player.level < Game.rebirth.getMaxLevel()) return false;
+      if (Game.player.gold < REBIRTH_CONFIG.cost.gold) return false;
+      if (Game.player.diamond < REBIRTH_CONFIG.cost.diamond) return false;
+      return true;
+    },
+    doRebirth: () => {
+      if (!Game.rebirth.canRebirth()) {
+        Game.log.addLog('轉生失敗：不滿足轉生條件', 'danger');
+        return false;
+      }
+      // 扣除消耗
+      Game.player.gold -= REBIRTH_CONFIG.cost.gold;
+      Game.player.diamond -= REBIRTH_CONFIG.cost.diamond;
+      // 轉生處理
+      Game.player.rebirthData.rebirthLevel += 1;
+      Game.player.level = 1;
+      Game.player.exp = 0;
+      Game.player.levelUpExp = Game.level.getLevelUpExp(1);
+      // 發放獎勵
+      Game.log.addLog(`恭喜！轉生成功！當前轉生等級：${Game.player.rebirthData.rebirthLevel}轉`, 'success');
+      Game.log.addLog('等級已重置為1級，屬性上限已提升，全屬性獲得永久增幅！', 'success');
+      // 重新計算屬性
+      Game.attribute.calculateFinalAttr();
+      Game.render.renderRebirthView();
+      Game.render.renderRoleView();
+      return true;
+    },
+    getRebirthMultiplier: () => {
+      return 1 + Game.player.rebirthData.rebirthLevel * REBIRTH_CONFIG.baseAttrMultiplier;
+    },
+  },
+
+  // 擴展渲染模塊
+  render: Object.assign(Game.render, {
+    renderTitleView: () => {
+      const titleView = document.getElementById('titleView');
+      Game.title.initData();
+      const wearingTitle = Game.player.titleData.wearingTitle;
+      titleView.innerHTML = `
+        <div class="card">
+          <h2 class="card-title">稱號系統</h2>
+          <div style="margin-bottom: 1.5rem;">當前佩戴：<span style="color: var(--warning-color); font-weight: bold;">${wearingTitle ? TITLE_CONFIG.find(t => t.id === wearingTitle).name : '無'}</span></div>
+          <div class="title-grid">
+            ${TITLE_CONFIG.map(title => {
+              const isActivated = Game.player.titleData.activatedTitles.includes(title.id);
+              const isWearing = wearingTitle === title.id;
+              return `
+                <div class="title-card ${isActivated ? 'activated' : ''} ${isWearing ? 'wearing' : ''}">
+                  <div class="title-name" style="color: ${isActivated ? (isWearing ? 'var(--warning-color)' : 'var(--success-color)') : '#AAAAAA'}">${title.name}</div>
+                  <div style="font-size: 0.8rem; color: #CCCCCC; margin-bottom: 0.5rem;">
+                    ${Object.entries(title.attr).map(([key, value]) => `${ATTR_NAME_MAP[key]} +${GameUtils.formatAttributeValue(key, value)}`).join('<br>')}
+                  </div>
+                  <div style="font-size: 0.7rem; color: #AAAAAA; margin-bottom: 0.8rem;">${title.desc}</div>
+                  <button class="btn btn-sm ${isWearing ? 'btn-warning' : 'btn-outline'}" style="width: 100%;" ${!isActivated ? 'disabled' : ''} id="title-wear-${title.id}">
+                    ${isWearing ? '已佩戴' : isActivated ? '佩戴' : '未解鎖'}
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+      // 佩戴按鈕事件
+      TITLE_CONFIG.forEach(title => {
+        const btn = document.getElementById(`title-wear-${title.id}`);
+        if (btn) btn.addEventListener('click', () => Game.title.wearTitle(title.id));
+      });
+    },
+    renderFashionView: () => {
+      const fashionView = document.getElementById('fashionView');
+      Game.fashion.initData();
+      const wearingFashion = Game.player.fashionData.wearingFashion.body;
+      fashionView.innerHTML = `
+        <div class="card">
+          <h2 class="card-title">時裝系統</h2>
+          <div style="margin-bottom: 1.5rem;">當前穿戴：<span style="color: var(--primary-color); font-weight: bold;">${wearingFashion ? FASHION_CONFIG.find(f => f.id === wearingFashion).name : '無'}</span></div>
+          <div class="fashion-grid">
+            ${FASHION_CONFIG.map(fashion => {
+              const isActivated = Game.player.fashionData.activatedFashion.includes(fashion.id);
+              const isWearing = wearingFashion === fashion.id;
+              return `
+                <div class="fashion-card ${isActivated ? 'activated' : ''}">
+                  <div style="font-weight: bold; margin-bottom: 0.5rem; color: ${isActivated ? 'var(--primary-color)' : '#AAAAAA'}">${fashion.name}</div>
+                  <div style="font-size: 0.7rem; color: #CCCCCC; margin-bottom: 0.8rem;">
+                    ${Object.entries(fashion.attr).map(([key, value]) => `${ATTR_NAME_MAP[key]} +${GameUtils.formatAttributeValue(key, value)}`).join('<br>')}
+                  </div>
+                  <div style="font-size: 0.7rem; color: #AAAAAA; margin-bottom: 0.8rem;">${fashion.desc}</div>
+                  <button class="btn btn-sm ${isWearing ? 'btn-primary' : 'btn-outline'}" style="width: 100%;" ${!isActivated ? 'disabled' : ''} id="fashion-wear-${fashion.id}">
+                    ${isWearing ? '已穿戴' : isActivated ? '穿戴' : '未解鎖'}
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+      // 穿戴按鈕事件
+      FASHION_CONFIG.forEach(fashion => {
+        const btn = document.getElementById(`fashion-wear-${fashion.id}`);
+        if (btn) btn.addEventListener('click', () => Game.fashion.wearFashion(fashion.id));
+      });
+    },
+    renderSkillView: () => {
+      const skillView = document.getElementById('skillView');
+      Game.skill.initData();
+      skillView.innerHTML = `
+        <div class="card">
+          <h2 class="card-title">技能系統</h2>
+          <div class="skill-grid">
+            ${SKILL_CONFIG.map(skill => {
+              const skillData = Game.player.skillData.skills[skill.id];
+              const isUnlocked = skillData.level > 0 || skill.maxLevel === 1;
+              return `
+                <div class="skill-card">
+                  <div class="skill-name">${skill.name} Lv.${skillData.level}/${skill.maxLevel}</div>
+                  <div class="skill-cooldown">冷卻：${skill.cooldown}回合 | 藍耗：${skill.mpCost || 0}</div>
+                  <div style="font-size: 0.8rem; color: #CCCCCC; margin-bottom: 0.8rem;">${skill.desc}</div>
+                  <button class="btn btn-primary" style="width: 100%;" ${skillData.level >= skill.maxLevel || skill.maxLevel === 1 ? 'disabled' : ''} id="skill-upgrade-${skill.id}">
+                    ${skillData.level >= skill.maxLevel ? '已滿級' : `升級 (${(skillData.level + 1) * 10000}金幣)`}
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+      // 升級按鈕事件
+      SKILL_CONFIG.forEach(skill => {
+        const btn = document.getElementById(`skill-upgrade-${skill.id}`);
+        if (btn) btn.addEventListener('click', () => Game.skill.levelUpSkill(skill.id));
+      });
+    },
+    renderDungeonView: () => {
+      const dungeonView = document.getElementById('dungeonView');
+      Game.dungeon.initData();
+      dungeonView.innerHTML = `
+        <div class="card">
+          <h2 class="card-title">日常副本</h2>
+          <div class="dungeon-list">
+            ${DUNGEON_CONFIG.map(dungeon => {
+              const leftCount = Game.player.dungeonData.dailyCount[dungeon.id];
+              return `
+                <div class="dungeon-card">
+                  <div class="dungeon-info">
+                    <h4>${dungeon.name}</h4>
+                    <p style="font-size: 0.8rem; color: #AAAAAA;">${dungeon.desc}</p>
+                    <p style="font-size: 0.8rem; color: var(--success-color);">獎勵：${dungeon.rewardDesc}</p>
+                  </div>
+                  <div style="text-align: center;">
+                    <span style="color: ${leftCount > 0 ? 'var(--warning-color)' : 'var(--danger-color)'}">剩餘次數：${leftCount}/${dungeon.dailyCount}</span>
+                  </div>
+                  <button class="btn btn-primary" id="dungeon-start-${dungeon.id}" ${leftCount <= 0 ? 'disabled' : ''}>
+                    開始挑戰
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+      // 挑戰按鈕事件
+      DUNGEON_CONFIG.forEach(dungeon => {
+        const btn = document.getElementById(`dungeon-start-${dungeon.id}`);
+        if (btn) btn.addEventListener('click', () => Game.dungeon.startDungeon(dungeon.id));
+      });
+    },
+    renderRebirthView: () => {
+      const rebirthView = document.getElementById('rebirthView');
+      Game.rebirth.initData();
+      const canRebirth = Game.rebirth.canRebirth();
+      const maxLevel = Game.rebirth.getMaxLevel();
+      const rebirthLevel = Game.player.rebirthData.rebirthLevel;
+      rebirthView.innerHTML = `
+        <div class="card">
+          <div class="rebirth-info-card">
+            <h3>當前轉生等級</h3>
+            <div class="rebirth-level-display">${rebirthLevel} 轉</div>
+            <p>全屬性永久增幅：${rebirthLevel * REBIRTH_CONFIG.baseAttrMultiplier * 100}%</p>
+            <p>當前等級上限：${maxLevel} 級</p>
+          </div>
+          <h3 class="card-title">轉生條件</h3>
+          <div class="attr-grid">
+            <div class="attr-item">
+              <span>角色等級</span>
+              <span style="color: ${Game.player.level >= maxLevel ? 'var(--success-color)' : 'var(--danger-color)'}">${Game.player.level}/${maxLevel} 級</span>
+            </div>
+            <div class="attr-item">
+              <span>消耗金幣</span>
+              <span style="color: ${Game.player.gold >= REBIRTH_CONFIG.cost.gold ? 'var(--success-color)' : 'var(--danger-color)'}">${GameUtils.formatNumber(Game.player.gold)}/${GameUtils.formatNumber(REBIRTH_CONFIG.cost.gold)}</span>
+            </div>
+            <div class="attr-item">
+              <span>消耗元寶</span>
+              <span style="color: ${Game.player.diamond >= REBIRTH_CONFIG.cost.diamond ? 'var(--success-color)' : 'var(--danger-color)'}">${GameUtils.formatNumber(Game.player.diamond)}/${GameUtils.formatNumber(REBIRTH_CONFIG.cost.diamond)}</span>
+            </div>
+            <div class="attr-item">
+              <span>最大轉生等級</span>
+              <span>${REBIRTH_CONFIG.maxRebirthLevel} 轉</span>
+            </div>
+          </div>
+          <div style="text-align: center; margin-top: 2rem;">
+            <button class="btn btn-warning btn-lg" id="rebirthBtn" ${!canRebirth || rebirthLevel >= REBIRTH_CONFIG.maxRebirthLevel ? 'disabled' : ''}>
+              ${rebirthLevel >= REBIRTH_CONFIG.maxRebirthLevel ? '已達到最高轉生等級' : canRebirth ? '立即轉生' : '不滿足轉生條件'}
+            </button>
+          </div>
+          <div class="card" style="margin-top: 1.5rem;">
+            <h3 class="card-title">轉生說明</h3>
+            <ul style="color: #CCCCCC; line-height: 1.8; padding-left: 1.5rem;">
+              <li>轉生可突破等級上限，每轉生一次，等級上限提升50級</li>
+              <li>轉生後等級重置為1級，所有屬性、裝備、道具均保留</li>
+              <li>每轉生一次，獲得10%全屬性永久增幅，可疊加</li>
+              <li>最高可轉生10次，獲得100%全屬性永久增幅</li>
+            </ul>
+          </div>
+        </div>
+      `;
+      // 轉生按鈕事件
+      document.getElementById('rebirthBtn').addEventListener('click', Game.rebirth.doRebirth);
+    },
+  }),
+});
+
+// 擴展導航欄，新增按鈕
+window.addEventListener('load', () => {
+  const mainNav = document.getElementById('mainNav');
+  const navList = [
+    { id: 'title', name: '稱號' },
+    { id: 'fashion', name: '時裝' },
+    { id: 'skill', name: '技能' },
+    { id: 'dungeon', name: '副本' },
+    { id: 'rebirth', name: '轉生' },
+  ];
+  navList.forEach(nav => {
+    if (!document.querySelector(`.nav-btn[data-view="${nav.id}"]`)) {
+      const btn = document.createElement('button');
+      btn.className = 'nav-btn';
+      btn.dataset.view = nav.id;
+      btn.textContent = nav.name;
+      mainNav.insertBefore(btn, document.getElementById('saveManageBtn'));
+      btn.addEventListener('click', () => Game.render.switchView(nav.id));
+    }
+  });
+  // 初始化數據
+  Game.title.initData();
+  Game.fashion.initData();
+  Game.skill.initData();
+  Game.dungeon.initData();
+  Game.rebirth.initData();
+});
+
+// 擴展視圖切換邏輯
+const originalViewSwitch = Game.render.switchView;
+Game.render.switchView = (viewName) => {
+  originalViewSwitch(viewName);
+  if (viewName === 'title') Game.render.renderTitleView();
+  if (viewName === 'fashion') Game.render.renderFashionView();
+  if (viewName === 'skill') Game.render.renderSkillView();
+  if (viewName === 'dungeon') Game.render.renderDungeonView();
+  if (viewName === 'rebirth') Game.render.renderRebirthView();
+};
+
+// 擴展屬性計算邏輯，新增稱號、時裝、轉生加成
+const originalAttrCalculate = Game.attribute.calculateFinalAttr;
+Game.attribute.calculateFinalAttr = () => {
+  originalAttrCalculate();
+  // 稱號加成
+  const titleAttr = Game.title.getTitleTotalAttr();
+  for (const key in titleAttr) {
+    if (key === ATTR_TYPE.ALL_ATTR_MULTIPLIER) {
+      for (const attrKey in ATTR_TYPE) {
+        Game.player.finalAttr[attrKey] *= (1 + titleAttr[key]);
+      }
+    } else {
+      Game.player.finalAttr[key] = (Game.player.finalAttr[key] || 0) + titleAttr[key];
+    }
+  }
+  // 時裝加成
+  const fashionAttr = Game.fashion.getFashionTotalAttr();
+  for (const key in fashionAttr) {
+    if (key === ATTR_TYPE.ALL_ATTR_MULTIPLIER) {
+      for (const attrKey in ATTR_TYPE) {
+        Game.player.finalAttr[attrKey] *= (1 + fashionAttr[key]);
+      }
+    } else {
+      Game.player.finalAttr[key] = (Game.player.finalAttr[key] || 0) + fashionAttr[key];
+    }
+  }
+  // 轉生加成
+  const rebirthMulti = Game.rebirth.getRebirthMultiplier();
+  for (const key in ATTR_TYPE) {
+    Game.player.finalAttr[key] *= rebirthMulti;
+  }
+  // 技能buff加成
+  Game.player.finalAttr[ATTR_TYPE.PHYSICAL_ATTACK] *= Game.skill.getBuffMultiplier('attack_buff');
+  Game.player.finalAttr[ATTR_TYPE.MAGIC_ATTACK] *= Game.skill.getBuffMultiplier('attack_buff');
+  Game.player.finalAttr[ATTR_TYPE.PHYSICAL_DEFENSE] *= Game.skill.getBuffMultiplier('defense_buff');
+  Game.player.finalAttr[ATTR_TYPE.MAGIC_DEFENSE] *= Game.skill.getBuffMultiplier('defense_buff');
+};
+
+// 擴展等級上限邏輯
+const originalLevelUpExp = Game.level.getLevelUpExp;
+Game.level.getLevelUpExp = (level) => {
+  const maxLevel = Game.rebirth.getMaxLevel();
+  if (level > maxLevel) return Infinity;
+  return originalLevelUpExp(level);
+};
+
+// 擴展戰鬥回合邏輯，新增技能冷卻與buff處理
+const originalRoundEnd = Game.battle.playerRoundEnd;
+Game.battle.playerRoundEnd = () => {
+  originalRoundEnd();
+  Game.skill.onRoundEnd();
+};
+
+// 擴展戰鬥界面，新增技能按鈕
+const originalBattleRender = Game.render.renderBattleView;
+Game.render.renderBattleView = () => {
+  originalBattleRender();
+  const battleView = document.getElementById('battleView');
+  const actionBtns = battleView.querySelector('.battle-action-btns');
+  if (actionBtns && !document.getElementById('skillActionContainer')) {
+    const skillContainer = document.createElement('div');
+    skillContainer.id = 'skillActionContainer';
+    skillContainer.style.marginTop = '1rem';
+    skillContainer.innerHTML = `
+      <h4 style="margin-bottom: 0.5rem;">技能釋放</h4>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        ${SKILL_CONFIG.filter(s => s.id !== 'normal_attack').map(skill => {
+          const skillData = Game.player.skillData.skills[skill.id];
+          const canUse = Game.skill.canUseSkill(skill.id);
+          return `
+            <button class="btn btn-sm ${canUse ? 'btn-primary' : 'btn-outline'}" id="skill-use-${skill.id}" ${!canUse || skillData.level <= 0 ? 'disabled' : ''} style="flex: 1; min-width: 100px;">
+              ${skill.name} ${skillData.cooldownLeft > 0 ? `(${skillData.cooldownLeft})` : ''}
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `;
+    actionBtns.parentNode.insertBefore(skillContainer, actionBtns.nextSibling);
+    // 技能按鈕事件
+    SKILL_CONFIG.forEach(skill => {
+      const btn = document.getElementById(`skill-use-${skill.id}`);
+      if (btn) btn.addEventListener('click', () => Game.skill.useSkill(skill.id));
+    });
+  }
+};
+
+// 擴展戰鬥結算邏輯，兼容副本戰鬥
+const originalBattleEnd = Game.battle.checkBattleEnd;
+Game.battle.checkBattleEnd = () => {
+  const battle = Game.battle.currentBattle;
+  const isEnd = originalBattleEnd();
+  if (isEnd && battle?.isDungeon) {
+    setTimeout(() => Game.dungeon.settleDungeonBattle(battle.isWin), 500);
+  }
+  return isEnd;
+};
+
+// 擴展每日重置邏輯
+const originalDailyReset = Game.task.checkDailyReset;
+Game.task.checkDailyReset = () => {
+  originalDailyReset();
+  Game.dungeon.checkDailyReset();
+};
+
+// 擴展存檔加載邏輯，初始化新增數據
+const originalLoadGame = Game.save.loadGame;
+Game.save.loadGame = () => {
+  const result = originalLoadGame();
+  Game.title.initData();
+  Game.fashion.initData();
+  Game.skill.initData();
+  Game.dungeon.initData();
+  Game.rebirth.initData();
+  return result;
+};
+
+// 測試方法：解鎖所有稱號、時裝，滿級技能
+window.unlockAllTitleFashion = () => {
+  TITLE_CONFIG.forEach(title => {
+    if (!Game.player.titleData.activatedTitles.includes(title.id)) {
+      Game.player.titleData.activatedTitles.push(title.id);
+    }
+  });
+  FASHION_CONFIG.forEach(fashion => {
+    if (!Game.player.fashionData.activatedFashion.includes(fashion.id)) {
+      Game.player.fashionData.activatedFashion.push(fashion.id);
+    }
+  });
+  SKILL_CONFIG.forEach(skill => {
+    if (skill.maxLevel > 1) {
+      Game.player.skillData.skills[skill.id].level = skill.maxLevel;
+    }
+  });
+  Game.log.addLog('已解鎖所有稱號、時裝，技能已滿級', 'success');
+  Game.attribute.calculateFinalAttr();
+  Game.render.renderTitleView();
+  Game.render.renderFashionView();
+  Game.render.renderSkillView();
+};
+</script>
 </body>
 </html>
